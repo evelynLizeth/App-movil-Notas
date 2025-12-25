@@ -76,9 +76,6 @@ fun MainScreen(
                 IconButton(onClick = { viewModel.exportStudentsToPdf() }) {
                     Icon(Icons.Filled.Print, contentDescription = "Imprimir")
                 }
-                IconButton(onClick = { viewModel.exportStudentsToPdf() }) {
-                    Icon(Icons.Filled.Share, contentDescription = "Compartir")
-                }
                 Button(onClick = onNavigateToTasks) {
                     Text("CREAR TAREAS")
                 }
@@ -128,7 +125,7 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 Encabezado de la tabla
+        // 🔹 Encabezado de la tabla estudiantes
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(0.5f))
             Text("Nombres", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

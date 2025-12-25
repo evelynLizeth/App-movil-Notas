@@ -7,6 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.eve.notas.data.model.Student
 import com.eve.notas.ui.tasks.Task
@@ -17,27 +19,47 @@ fun DetailScreen(
     tasksViewModel: TasksViewModel,
     studentId: Long,
     modifier: Modifier = Modifier
-){
+) {
     val student by viewModel.getStudentById(studentId).collectAsState(initial = null)
+    val tasks by tasksViewModel.tasks.collectAsState() // 👈 usamos Flow
+    val promedio by viewModel.averageFlow.collectAsState(initial = 0.00)
 
-    Text("Alumno: ${student?.name ?: "(sin nombre)"}")
-
-    val tasks by tasksViewModel.tasks.observeAsState(emptyList())
-
-    // Estado local para las notas de cada tarea (inicializadas en 0)
-    var notas by remember {
-        mutableStateOf(tasks.associate { it.id to 0.0 }.toMutableMap())
+    var notas by remember(tasks) {
+        mutableStateOf(tasks.associate { it.id to 0.00 }.toMutableMap())
     }
+    var searchQuery by remember { mutableStateOf("") }
 
-    // 🔹 Calcular promedio dinámicamente
-    val promedio = if (notas.isNotEmpty()) notas.values.average() else 0.0
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Detalle de Notas",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
 
-    Column(modifier = modifier.padding(16.dp)) {
-        Text("Alumno: ${student?.name ?: "(sin nombre)"}", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Alumno: ${student?.name ?: "(sin nombre)"}",
+            style = MaterialTheme.typography.titleMedium
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 Encabezado de la tabla
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Buscar tarea") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Row(modifier = Modifier.fillMaxWidth()) {
             Text("Tarea", modifier = Modifier.weight(2f), style = MaterialTheme.typography.titleMedium)
             Text("Nota", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -45,23 +67,25 @@ fun DetailScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 🔹 Lista de tareas con columna de notas
-        LazyColumn {
-            items(tasks) { task ->
+        val filteredTasks = if (searchQuery.isBlank()) tasks
+        else tasks.filter { it.name.contains(searchQuery, ignoreCase = true) }
+
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(filteredTasks) { task ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 ) {
-                    // Columna 1: Nombre de la tarea
-                    Text(task.title, modifier = Modifier.weight(2f))
+                    Text(task.name, modifier = Modifier.weight(2f))
 
-                    // Columna 2: Campo editable para la nota
                     OutlinedTextField(
-                        value = notas[task.id]?.toString() ?: "0",
+                        value = String.format("%.2f", notas[task.id] ?: 0.00),
                         onValueChange = { value ->
-                            val nota = value.toDoubleOrNull() ?: 0.0
+                            val nota = value.replace(",", ".").toDoubleOrNull() ?: 0.00
                             notas[task.id] = nota
+                            val promedioFinal = notas.values.average()
+                            viewModel.saveGrades(studentId, notas, promedioFinal)
                         },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -73,26 +97,11 @@ fun DetailScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 Promedio final calculado
         Text(
-            "Promedio del alumno: $promedio",
-            style = MaterialTheme.typography.titleMedium
+            text = "Promedio del alumno: ${String.format("%.2f", promedio)}",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 🔹 Botón Guardar
-        Button(onClick = {
-            // Normalizamos todas las notas: si alguna quedó vacía, la ponemos en 0
-            tasks.forEach { task ->
-                if (notas[task.id] == null) {
-                    notas[task.id] = 0.0
-                }
-            }
-            val promedioFinal = if (notas.isNotEmpty()) notas.values.average() else 0.0
-            viewModel.saveGrades(studentId, notas, promedioFinal)
-        }) {
-            Text("Guardar notas")
-        }
     }
 }
