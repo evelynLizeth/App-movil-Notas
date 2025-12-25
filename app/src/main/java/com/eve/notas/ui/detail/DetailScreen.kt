@@ -11,37 +11,36 @@ import androidx.compose.ui.unit.dp
 import com.eve.notas.data.model.Student
 import com.eve.notas.ui.tasks.Task
 import com.eve.notas.ui.tasks.TasksViewModel
-
 @Composable
 fun DetailScreen(
     viewModel: DetailViewModel,
     tasksViewModel: TasksViewModel,
     studentId: Long,
     modifier: Modifier = Modifier
-) {
-    val student = viewModel.getStudentById(studentId)
+){
+    val student by viewModel.getStudentById(studentId).collectAsState(initial = null)
+
+    Text("Alumno: ${student?.name ?: "(sin nombre)"}")
+
     val tasks by tasksViewModel.tasks.observeAsState(emptyList())
 
+    // Estado local para las notas de cada tarea (inicializadas en 0)
+    var notas by remember {
+        mutableStateOf(tasks.associate { it.id to 0.0 }.toMutableMap())
+    }
 
-    // Estado local para las notas de cada tarea
-    var notas by remember { mutableStateOf(mutableMapOf<Long, Double>()) }
-
-    // Calcular promedio dinámicamente
+    // 🔹 Calcular promedio dinámicamente
     val promedio = if (notas.isNotEmpty()) notas.values.average() else 0.0
 
     Column(modifier = modifier.padding(16.dp)) {
-        Text("Alumno: Evelyn")
+        Text("Alumno: ${student?.name ?: "(sin nombre)"}", style = MaterialTheme.typography.titleLarge)
 
         Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Text("Tarea 1")
-        }
-
 
         // 🔹 Encabezado de la tabla
         Row(modifier = Modifier.fillMaxWidth()) {
-            Text("Tarea", modifier = Modifier.weight(2f))
-            Text("Nota", modifier = Modifier.weight(1f))
+            Text("Tarea", modifier = Modifier.weight(2f), style = MaterialTheme.typography.titleMedium)
+            Text("Nota", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -54,17 +53,15 @@ fun DetailScreen(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 ) {
-                    // Nombre de la tarea (no editable)
+                    // Columna 1: Nombre de la tarea
                     Text(task.title, modifier = Modifier.weight(2f))
 
-                    // Campo para insertar nota
+                    // Columna 2: Campo editable para la nota
                     OutlinedTextField(
-                        value = notas[task.id]?.toString() ?: "",
+                        value = notas[task.id]?.toString() ?: "0",
                         onValueChange = { value ->
-                            val nota = value.toDoubleOrNull()
-                            if (nota != null) {
-                                notas[task.id] = nota
-                            }
+                            val nota = value.toDoubleOrNull() ?: 0.0
+                            notas[task.id] = nota
                         },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -76,7 +73,26 @@ fun DetailScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 Promedio final
-        Text("Promedio del alumno: $promedio", style = MaterialTheme.typography.titleMedium)
+        // 🔹 Promedio final calculado
+        Text(
+            "Promedio del alumno: $promedio",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 🔹 Botón Guardar
+        Button(onClick = {
+            // Normalizamos todas las notas: si alguna quedó vacía, la ponemos en 0
+            tasks.forEach { task ->
+                if (notas[task.id] == null) {
+                    notas[task.id] = 0.0
+                }
+            }
+            val promedioFinal = if (notas.isNotEmpty()) notas.values.average() else 0.0
+            viewModel.saveGrades(studentId, notas, promedioFinal)
+        }) {
+            Text("Guardar notas")
+        }
     }
 }

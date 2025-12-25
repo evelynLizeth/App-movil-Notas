@@ -7,6 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
 import androidx.navigation.compose.rememberNavController
@@ -15,12 +18,17 @@ import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.navigation.NavGraph
 import com.eve.notas.ui.main.MainViewModel
 import com.eve.notas.ui.detail.DetailViewModel
+import com.eve.notas.ui.tasks.TasksViewModel
 import com.eve.notas.ui.theme.AppMovilNotasTheme
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.padding
-import com.eve.notas.ui.tasks.TasksViewModel
 
 class MainActivity : ComponentActivity() {
+
+    // ✅ propiedades de clase
+    private lateinit var mainViewModel: MainViewModel
+    private lateinit var detailViewModel: DetailViewModel
+    private lateinit var tasksViewModel: TasksViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -32,17 +40,45 @@ class MainActivity : ComponentActivity() {
         ).fallbackToDestructiveMigration()
             .build()
 
-        // 2. Crear repositorio
-        val repo = NotesRepository(db)
+        // 2. Crear repositorio con DAOs
+        val repo = NotesRepository(
+            db,
+            db.studentDao(),
+            db.gradeDao()
+        )
 
-        // 3. Crear ViewModels
-        val mainViewModel = MainViewModel(repo)
-        val detailViewModel = DetailViewModel(repo)
-        val tasksViewModel = TasksViewModel()
+        // 3. Crear ViewModels y asignarlos a las propiedades
+        mainViewModel = ViewModelProvider(
+            this,
+            object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+                        @Suppress("UNCHECKED_CAST")
+                        return MainViewModel(application, repo) as T
+                    }
+                    throw IllegalArgumentException("Unknown ViewModel class")
+                }
+            }
+        )[MainViewModel::class.java]
 
-        // 4. Precargar datos de prueba (opcional, para no ver pantalla vacía)
+        detailViewModel = ViewModelProvider(
+            this,
+            object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    if (modelClass.isAssignableFrom(DetailViewModel::class.java)) {
+                        @Suppress("UNCHECKED_CAST")
+                        return DetailViewModel(repo) as T
+                    }
+                    throw IllegalArgumentException("Unknown ViewModel class")
+                }
+            }
+        )[DetailViewModel::class.java]
+
+        tasksViewModel = ViewModelProvider(this)[TasksViewModel::class.java]
+
+        // 4. Precargar datos de prueba (opcional)
         lifecycleScope.launch {
-
+            // Ejemplo: repo.insert(Student(name = "Evelyn", average = 0.0))
         }
 
         enableEdgeToEdge()
@@ -55,11 +91,7 @@ class MainActivity : ComponentActivity() {
                         mainViewModel = mainViewModel,
                         detailViewModel = detailViewModel,
                         tasksViewModel = tasksViewModel,
-                        onNew = { mainViewModel.addStudent() },
-                        onEdit = {  },   // 👈 edita los seleccionados
-                        onDelete = { mainViewModel.deleteSelected() },
                         modifier = Modifier.padding(innerPadding)
-
                     )
                 }
             }

@@ -12,26 +12,27 @@ import kotlinx.coroutines.flow.Flow
 interface StudentDao {
     @Query("SELECT * FROM students ORDER BY name ASC")
     fun getAll(): Flow<List<Student>>
-
-    @Update
-    suspend fun updateStudent(student: Student)
-
-    @Query("SELECT * FROM students")
-    fun getStudents(): kotlinx.coroutines.flow.Flow<List<Student>>
+    @Query("DELETE FROM students WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
     @Query("SELECT * FROM students WHERE id = :id LIMIT 1")
-    fun getStudentById(id: Long): Student?   // 👈 devuelve un alumno por id
+    fun getStudentByIdFlow(id: Long): Flow<Student?>
 
     @Query("SELECT * FROM students WHERE name LIKE '%' || :name || '%'")
     fun searchByName(name: String): Flow<List<Student>>   // 👈 búsqueda por nombre
-
     @Insert
     suspend fun insert(student: Student): Long
-
-    @Update
-    suspend fun update(student: Student)
-
     @Delete
     suspend fun delete(student: Student)
+    @Update
+    suspend fun updateStudent(student: Student)
+//crear delete by id
+   // @Delete
+   // suspend fun deleteById (student: Student)
+
+
+    /*@Query("SELECT * FROM students WHERE id = :id LIMIT 1")
+    suspend fun getStudentById(id: Long)*/
+
 
 }

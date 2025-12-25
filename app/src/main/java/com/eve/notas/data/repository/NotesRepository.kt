@@ -1,26 +1,57 @@
 package com.eve.notas.data.repository
 
+
 import com.eve.notas.data.local.AppDatabase
-import com.eve.notas.data.model.Student
 import com.eve.notas.data.local.dao.StudentDao
+import com.eve.notas.data.local.dao.GradeDao
+import com.eve.notas.data.model.Student
+import com.eve.notas.data.model.Grade
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 
-class NotesRepository(private val db: AppDatabase) {
-    private val studentDao: StudentDao = db.studentDao()
-
-    fun getStudents(): kotlinx.coroutines.flow.Flow<List<Student>> {
-        return studentDao.getStudents()
+class NotesRepository(
+                      private val db: AppDatabase,
+                      private val studentDao: StudentDao,
+                      private val gradeDao: GradeDao
+) {
+    fun getStudents(): Flow<List<Student>> {
+        return studentDao.getAll()
     }
+
     suspend fun addStudent(student: Student) {
         studentDao.insert(student)
     }
-    fun getStudentById(id: Long): Student? {
-        return studentDao.getStudentById(id)
+
+    fun getStudentByIdFlow(id: Long): Flow<Student?> {
+        return studentDao.getStudentByIdFlow(id)
     }
+
     fun searchByName(name: String) = studentDao.searchByName(name)
-    suspend fun updateStudent(student: Student) = studentDao.update(student)
+
+    suspend fun updateStudent(student: Student) = studentDao.updateStudent(student)
+
     suspend fun deleteStudent(student: Student) = studentDao.delete(student)
-    // NotesRepository
+
     suspend fun insert(student: Student): Long {
         return studentDao.insert(student)
     }
+
+    suspend fun deleteById(id: Long) = studentDao.deleteById(id)
+
+    // Pantalla 2 DETALLE DE NOTAS POR ESTUDIANTE
+    suspend fun insertOrUpdateGrade(studentId: Long, taskId: Long, value: Double) {
+        val grade = Grade(studentId = studentId, taskId = taskId, value = value)
+        gradeDao.insertOrUpdate(grade)
+    }
+
+    suspend fun updateStudentAverage(studentId: Long, average: Double) {
+        // 🔹 Obtenemos el Student directamente con firstOrNull()
+        val student = studentDao.getStudentByIdFlow(studentId).firstOrNull()
+        if (student != null) {
+            val updatedStudent = student.copy(average = average)
+            studentDao.updateStudent(updatedStudent)
+        }
+    }
+
 }
+
