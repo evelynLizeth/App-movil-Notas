@@ -19,6 +19,7 @@ import com.eve.notas.navigation.NavGraph
 import com.eve.notas.ui.main.MainViewModel
 import com.eve.notas.ui.detail.DetailViewModel
 import com.eve.notas.ui.tasks.TasksViewModel
+import com.eve.notas.ui.tasks.TasksViewModelFactory
 import com.eve.notas.ui.theme.AppMovilNotasTheme
 import kotlinx.coroutines.launch
 
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
         // 1. Inicializar Room
         val db = Room.databaseBuilder(
             applicationContext,
@@ -44,7 +46,8 @@ class MainActivity : ComponentActivity() {
         val repo = NotesRepository(
             db,
             db.studentDao(),
-            db.gradeDao()
+            db.gradeDao(),
+            db.taskDao()
         )
 
         // 3. Crear ViewModels y asignarlos a las propiedades
@@ -74,7 +77,8 @@ class MainActivity : ComponentActivity() {
             }
         )[DetailViewModel::class.java]
 
-        tasksViewModel = ViewModelProvider(this)[TasksViewModel::class.java]
+        val tasksFactory = TasksViewModelFactory(repo)
+        tasksViewModel = ViewModelProvider(this, tasksFactory)[TasksViewModel::class.java]
 
         // 4. Precargar datos de prueba (opcional)
         lifecycleScope.launch {

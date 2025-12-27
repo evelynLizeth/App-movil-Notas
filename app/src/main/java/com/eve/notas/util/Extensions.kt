@@ -1,15 +1,12 @@
 package com.eve.notas.util
 
-
 import android.content.Context
 import android.graphics.pdf.PdfDocument
 import com.eve.notas.data.model.Student
 import java.io.File
 import android.graphics.Paint
+import android.os.Environment
 import java.io.FileOutputStream
-
-
-
 
 fun List<Student>.generatePdf(context: Context, fileName: String = "estudiantes.pdf"): File {
     val pdfDocument = PdfDocument()
@@ -18,29 +15,57 @@ fun List<Student>.generatePdf(context: Context, fileName: String = "estudiantes.
     val page = pdfDocument.startPage(pageInfo)
     val canvas = page.canvas
 
-    var y = 50
-    canvas.drawText("Lista de Estudiantes", 200f, y.toFloat(), paint.apply {
-        textSize = 18f
-        isFakeBoldText = true
-    })
-    y += 40
+    var y = 80f
+
+    // 🔹 Título
+    paint.textSize = 18f
+    paint.isFakeBoldText = true
+    canvas.drawText("Lista de Estudiantes", 200f, 50f, paint)
+
     paint.textSize = 14f
     paint.isFakeBoldText = false
 
-    canvas.drawText("Nombre", 50f, y.toFloat(), paint)
-    canvas.drawText("Promedio", 350f, y.toFloat(), paint)
-    y += 30
+    // 🔹 Encabezados
+    val startXName = 50f
+    val startXAverage = 350f
+    canvas.drawText("Nombre", startXName, y, paint)
+    canvas.drawText("Promedio", startXAverage, y, paint)
+    y += 20f
 
-    forEach {
-        canvas.drawText(it.name, 50f, y.toFloat(), paint)
-        canvas.drawText(String.format("%.2f", it.average), 350f, y.toFloat(), paint)
-        y += 25
+    // 🔹 Línea debajo de encabezados
+    canvas.drawLine(40f, y, 550f, y, paint)
+    y += 20f
+
+    // 🔹 Filas con colores alternos
+    forEachIndexed { index, student ->
+        val rowHeight = 25f
+        val left = 40f
+        val right = 550f
+        val top = y
+        val bottom = y + rowHeight
+
+        val bgPaint = Paint().apply {
+            color = if (index % 2 == 0) android.graphics.Color.LTGRAY else android.graphics.Color.WHITE
+        }
+        canvas.drawRect(left, top, right, bottom, bgPaint)
+
+        paint.color = android.graphics.Color.BLACK
+        canvas.drawText(student.name, startXName, y + 18f, paint)
+        canvas.drawText(String.format("%.2f", student.average), startXAverage, y + 18f, paint)
+
+        canvas.drawLine(left, bottom, right, bottom, paint)
+        y += rowHeight
     }
 
     pdfDocument.finishPage(page)
 
-    val file = File(context.getExternalFilesDir(null), fileName)
+    // 🔹 Guardar en carpeta pública Descargas
+    val file = File(
+        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+        fileName
+    )
     pdfDocument.writeTo(FileOutputStream(file))
     pdfDocument.close()
+
     return file
 }

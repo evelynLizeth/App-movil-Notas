@@ -16,4 +16,7 @@ interface GradeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(grade: Grade)
 
+    @Query("SELECT * FROM grade WHERE studentId = :studentId")
+    fun getGradesByStudent(studentId: Long): Flow<List<Grade>>
+
 }

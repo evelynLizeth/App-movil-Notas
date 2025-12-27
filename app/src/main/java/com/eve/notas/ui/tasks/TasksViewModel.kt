@@ -2,106 +2,118 @@ package com.eve.notas.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eve.notas.data.repository.NotesRepository
+import com.eve.notas.data.model.Task
+import com.eve.notas.util.ValidationHelper
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-// Modelo de datos de una tarea
-data class Task(
-    val id: Long,
-    val name: String
-)
+class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
 
-class TasksViewModel : ViewModel() {
+    // Todas las tareas desde Room → Flow convertido a StateFlow
+    val tasks: StateFlow<List<Task>> =
+        repo.tasks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // 🔹 Lista de tareas
-    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
-    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
-
-    // 🔹 Campo de búsqueda
+    // Búsqueda
     private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    // Filtrado reactivo con combine
+    val filteredTasks: StateFlow<List<Task>> =
+        combine(tasks, searchQuery) { allTasks, query ->
+            if (query.isBlank()) allTasks
+            else allTasks.filter { it.name.contains(query, ignoreCase = true) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Selección múltiple
+    private val _selectedTasks = MutableStateFlow<List<Task>>(emptyList())
+    val selectedTasks: StateFlow<List<Task>> = _selectedTasks
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _showAddDialog = MutableStateFlow(false)
+    val showAddDialog: StateFlow<Boolean> = _showAddDialog.asStateFlow()
+
+    private val _showDeleteDialog = MutableStateFlow(false)
+    val showDeleteDialog: StateFlow<Boolean> = _showDeleteDialog.asStateFlow()
+
+    private val _editingTask = MutableStateFlow<Task?>(null)
+    val editingTask: StateFlow<Task?> = _editingTask.asStateFlow()
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
     }
 
-    // 🔹 Lista filtrada según búsqueda
-    val filteredTasks: StateFlow<List<Task>> = _searchQuery
-        .combine(_tasks) { query, tasks ->
-            if (query.isBlank()) tasks
-            else tasks.filter { it.name.contains(query, ignoreCase = true) }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    // 🔹 Tareas seleccionadas
-    private val _selectedTasks = MutableStateFlow<List<Task>>(emptyList())
-    val selectedTasks: StateFlow<List<Task>> = _selectedTasks.asStateFlow()
-
     fun toggleSelection(task: Task) {
-        _selectedTasks.value = if (_selectedTasks.value.contains(task)) {
-            _selectedTasks.value - task
-        } else {
-            _selectedTasks.value + task
-        }
-    }
-
-    // 🔹 Estado del diálogo de creación
-    private val _isAddDialogOpen = MutableStateFlow(false)
-    val isAddDialogOpen: StateFlow<Boolean> = _isAddDialogOpen.asStateFlow()
-
-    fun openAddDialog() {
-        _isAddDialogOpen.value = true
-    }
-
-    fun closeAddDialog() {
-        _isAddDialogOpen.value = false
-    }
-
-    fun confirmAddTask(name: String) {
-        addTask(name)
-        _isAddDialogOpen.value = false
-    }
-
-    // 🔹 CRUD de tareas
-    fun addTask(name: String) {
-        val newTask = Task(id = (_tasks.value.size + 1).toLong(), name = name)
-        _tasks.value = _tasks.value + newTask
-    }
-
-    fun editTask(task: Task) {
-        _tasks.value = _tasks.value.map {
-            if (it.id == task.id) task.copy(name = task.name + " (editado)") else it
-        }
+        _selectedTasks.value =
+            if (_selectedTasks.value.contains(task))
+                _selectedTasks.value - task
+            else
+                _selectedTasks.value + task
     }
 
     fun deleteTask(task: Task) {
-        _tasks.value = _tasks.value.filterNot { it.id == task.id }
+        viewModelScope.launch {
+            repo.delete(task)
+        }
+    }
+    fun updateTask(task: Task) {
+        viewModelScope.launch {
+            repo.update(task)
+        }
+    }
+    fun startEditingTask(task: Task) {
+        _editingTask.value = task
     }
 
-    fun deleteSelectedTasks() {
-        _tasks.value = _tasks.value.filterNot { _selectedTasks.value.contains(it) }
-        _selectedTasks.value = emptyList()
+    fun finishEditingTask(task: Task, newName: String) {
+        viewModelScope.launch {
+            val existingNames = tasks.value.map { it.id to it.name } // si usas StateFlow
+            if (!ValidationHelper.isValidName(newName, existingNames, task.id)) {
+                _errorMessage.value = "El registro ya existe o está vacío"
+                return@launch
+            }
+            repo.update(task.copy(name = newName))
+            _errorMessage.value = null
+            _editingTask.value = null
+        }
     }
-    // 🔹 Estado del diálogo de confirmación de eliminación
-    private val _isDeleteDialogOpen = MutableStateFlow(false)
-    val isDeleteDialogOpen: StateFlow<Boolean> = _isDeleteDialogOpen.asStateFlow()
-
-    fun openDeleteDialog() {
-        _isDeleteDialogOpen.value = true
+    fun cancelEditingTask() {
+        _editingTask.value = null
+        _errorMessage.value = null
     }
 
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
+    fun addTask(name: String) {
+        viewModelScope.launch {
+            val existingNames = tasks.value.map { it.id to it.name } // si usas StateFlow
+            if (!ValidationHelper.isValidName(name, existingNames)) {
+                _errorMessage.value = "La tarea ya existe o está vacía"
+                return@launch
+            }
+            repo.insert(Task(name = name))
+            _errorMessage.value = null
+            closeAddDialog()
+        }
+
+    }
+    fun openAddDialog() { _showAddDialog.value = true }
+    fun closeAddDialog() { _showAddDialog.value = false }
+    fun openDeleteDialog() { _showDeleteDialog.value = true }
     fun closeDeleteDialog() {
-        _isDeleteDialogOpen.value = false
-    }
-
-    fun confirmDeleteSelectedTasks() {
-        _tasks.value = _tasks.value.filterNot { _selectedTasks.value.contains(it) }
+        _showDeleteDialog.value = false
         _selectedTasks.value = emptyList()
-        _isDeleteDialogOpen.value = false
     }
 
+    fun deleteSelected() {
+        viewModelScope.launch {
+            _selectedTasks.value.forEach { repo.delete(it) }
+            _selectedTasks.value = emptyList()
+            closeDeleteDialog()
+        }
+    }
 }

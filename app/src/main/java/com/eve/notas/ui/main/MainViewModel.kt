@@ -1,51 +1,60 @@
 package com.eve.notas.ui.main
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
 import android.graphics.pdf.PdfDocument
 import android.graphics.Paint
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.eve.notas.data.model.Student
 import com.eve.notas.data.repository.NotesRepository
+import com.eve.notas.util.GeneratorPDF
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
+import com.eve.notas.util.ValidationHelper
+import com.eve.notas.util.generatePdf
 
 class MainViewModel(
     application: Application,
     private val repo: NotesRepository
 ) : AndroidViewModel(application) {
 
-    // 🔹 Lista completa de estudiantes
+    // 🔹 Lista completa de estudiantes como Flow
     val students: Flow<List<Student>> = repo.getStudents()
 
-    // 🔹 Alumno en edición (solo uno a la vez)
-    private val _editingStudentId = MutableStateFlow<Long?>(null)
-    val editingStudentId = _editingStudentId.asStateFlow()
+    // 🔹 Alumno en edición (objeto completo)
+    private val _editingStudent = MutableStateFlow<Student?>(null)
+    val editingStudent: StateFlow<Student?> = _editingStudent.asStateFlow()
+
+    // 🔹 Mensajes de error
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     // 🔹 Alumnos seleccionados para borrado múltiple
     private val _selectedStudents = MutableStateFlow<List<Student>>(emptyList())
-    val selectedStudents = _selectedStudents.asStateFlow()
+    val selectedStudents: StateFlow<List<Student>> = _selectedStudents.asStateFlow()
 
     // 🔹 Estado del diálogo de confirmación de borrado
     private val _showDeleteDialog = MutableStateFlow(false)
-    val showDeleteDialog = _showDeleteDialog.asStateFlow()
+    val showDeleteDialog: StateFlow<Boolean> = _showDeleteDialog.asStateFlow()
+
+    // 🔹 Estado del diálogo de agregar estudiante
+    private val _showAddDialog = MutableStateFlow(false)
+    val showAddDialog: StateFlow<Boolean> = _showAddDialog.asStateFlow()
 
     // 🔹 Búsqueda reactiva
     private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val filteredStudents: LiveData<List<Student>> =
-        _searchQuery.flatMapLatest { query: String ->
-            if (query.isBlank()) {
-                repo.getStudents()
-            } else {
-                repo.searchByName(query)
-            }
-        }.asLiveData()
+    val filteredStudents: StateFlow<List<Student>> = _searchQuery
+        .flatMapLatest { query ->
+            if (query.isBlank()) repo.getStudents()
+            else repo.searchByName(query)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // -------------------------------
     // 🔹 Funciones de interacción
@@ -66,7 +75,10 @@ class MainViewModel(
     }
 
     fun openDeleteDialog() { _showDeleteDialog.value = true }
-    fun closeDeleteDialog() { _showDeleteDialog.value = false }
+    fun closeDeleteDialog() {
+        _showDeleteDialog.value = false
+        _selectedStudents.value = emptyList()
+    }
 
     fun deleteSelected() {
         viewModelScope.launch {
@@ -76,58 +88,67 @@ class MainViewModel(
         }
     }
 
-    private val _showAddDialog = MutableStateFlow(false)
-    val showAddDialog = _showAddDialog.asStateFlow()
-
     fun openAddDialog() { _showAddDialog.value = true }
     fun closeAddDialog() { _showAddDialog.value = false }
 
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     fun addStudent(name: String) {
         viewModelScope.launch {
-            val newStudent = Student(name = name, average = 0.0)
-            repo.insert(newStudent)
-            closeAddDialog() // cerrar después de guardar
+            val existingNames = students.first().map { it.id to it.name }
+            if (!ValidationHelper.isValidName(name, existingNames)) {
+                _errorMessage.value = "El registro ya existe o está vacío"
+                return@launch
+            }
+            repo.insert(Student(name = name, average = 0.0))
+            _errorMessage.value = null
+            closeAddDialog()
         }
     }
 
-    fun startEditing(id: Long) {
-        _editingStudentId.value = id
+    // 🔹 Iniciar edición con el objeto completo
+    fun startEditing(student: Student) {
+        _editingStudent.value = student
     }
 
+    // 🔹 Finalizar edición
     fun finishEditing(student: Student, newName: String) {
         viewModelScope.launch {
-            val updated = student.copy(name = newName)
-            repo.updateStudent(updated)
-            _editingStudentId.value = null // salir de modo edición
+            val existingNames = students.first().map { it.id to it.name }
+            if (!ValidationHelper.isValidName(newName, existingNames, student.id)) {
+                _errorMessage.value = "El registro ya existe o está vacío"
+                return@launch
+            }
+            repo.updateStudent(student.copy(name = newName))
+            _editingStudent.value = null
+            _errorMessage.value = null
         }
+    }
+
+    // 🔹 Cancelar edición
+    fun cancelEditing() {
+        _editingStudent.value = null
+        _errorMessage.value = null
     }
 
     // 🔹 Exportar estudiantes a PDF
-    fun exportStudentsToPdf() {
-        viewModelScope.launch {
-            val studentsList = students.first()
-            val pdfDocument = PdfDocument()
-            val pageInfo = PdfDocument.PageInfo.Builder(300, 600, 1).create()
-            val page = pdfDocument.startPage(pageInfo)
+    fun exportStudentsToPdf(context: Context, students: List<Student>) {
+        val generator = GeneratorPDF()
+        val file = generator.generate(context, students)
 
-            val canvas = page.canvas
-            val paint = Paint().apply { textSize = 12f }
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            file
+        )
 
-            var y = 25f
-            canvas.drawText("Lista de Estudiantes", 10f, y, paint)
-            y += 20f
-
-            studentsList.forEach { student ->
-                canvas.drawText("${student.name} - Promedio: ${student.average}", 10f, y, paint)
-                y += 20f
-            }
-
-            pdfDocument.finishPage(page)
-
-            // ✅ Guardar en almacenamiento interno
-            val file = File(getApplication<Application>().filesDir, "estudiantes.pdf")
-            pdfDocument.writeTo(FileOutputStream(file))
-            pdfDocument.close()
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+
+        context.startActivity(Intent.createChooser(intent, "Abrir PDF con..."))
     }
 }

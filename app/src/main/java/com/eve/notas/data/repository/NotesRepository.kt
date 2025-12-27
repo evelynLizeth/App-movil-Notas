@@ -4,15 +4,19 @@ package com.eve.notas.data.repository
 import com.eve.notas.data.local.AppDatabase
 import com.eve.notas.data.local.dao.StudentDao
 import com.eve.notas.data.local.dao.GradeDao
+import com.eve.notas.data.local.dao.TaskDao
 import com.eve.notas.data.model.Student
 import com.eve.notas.data.model.Grade
+import com.eve.notas.data.model.Task
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
 class NotesRepository(
                       private val db: AppDatabase,
                       private val studentDao: StudentDao,
-                      private val gradeDao: GradeDao
+                      private val gradeDao: GradeDao,
+                      private val dao: TaskDao
+
 ) {
     fun getStudents(): Flow<List<Student>> {
         return studentDao.getAll()
@@ -52,6 +56,11 @@ class NotesRepository(
             studentDao.updateStudent(updatedStudent)
         }
     }
+    val tasks: Flow<List<Task>> = dao.getAll()
+
+    suspend fun insert(task: Task) = dao.insert(task)
+    suspend fun update(task: Task) = dao.update(task)
+    suspend fun delete(task: Task) = dao.delete(task)
 
 }
 
