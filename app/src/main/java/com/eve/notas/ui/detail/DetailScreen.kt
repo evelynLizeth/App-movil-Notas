@@ -38,6 +38,7 @@ fun DetailScreen(
     val grades by viewModel.grades.collectAsState()
     //val promedio by viewModel.promedio.collectAsState(initial = 0.0)
     val promedio by viewModel.promedio.collectAsState()
+    Text(text = "Promedio: $promedio")
 
     // 🔹 Estado local de notas editadas
     val notasEditadas = remember { mutableStateMapOf<Long, String>() }
