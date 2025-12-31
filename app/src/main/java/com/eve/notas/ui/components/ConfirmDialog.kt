@@ -3,7 +3,11 @@ package com.eve.notas.ui.components
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
-import androidx.compose.runtime.Composable
+//import androidx.compose.runtime.Composable
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Snackbar
+import androidx.compose.runtime.*
 
 @Composable
 fun ConfirmDialog(
@@ -27,5 +31,5 @@ fun ConfirmDialog(
             }
         }
     )
-}
 
+}

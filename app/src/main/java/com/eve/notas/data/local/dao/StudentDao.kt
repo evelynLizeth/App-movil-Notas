@@ -26,13 +26,7 @@ interface StudentDao {
     suspend fun delete(student: Student)
     @Update
     suspend fun updateStudent(student: Student)
-//crear delete by id
-   // @Delete
-   // suspend fun deleteById (student: Student)
 
-
-    /*@Query("SELECT * FROM students WHERE id = :id LIMIT 1")
-    suspend fun getStudentById(id: Long)*/
-
-
+    @Query("UPDATE students SET average = :average WHERE id = :studentId")
+    suspend fun updateAverage(studentId: Long, average: Double)
 }

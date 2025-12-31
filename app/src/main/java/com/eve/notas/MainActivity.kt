@@ -27,7 +27,6 @@ class MainActivity : ComponentActivity() {
 
     // ✅ propiedades de clase
     private lateinit var mainViewModel: MainViewModel
-    private lateinit var detailViewModel: DetailViewModel
     private lateinit var tasksViewModel: TasksViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,26 +63,8 @@ class MainActivity : ComponentActivity() {
             }
         )[MainViewModel::class.java]
 
-        detailViewModel = ViewModelProvider(
-            this,
-            object : ViewModelProvider.Factory {
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    if (modelClass.isAssignableFrom(DetailViewModel::class.java)) {
-                        @Suppress("UNCHECKED_CAST")
-                        return DetailViewModel(repo) as T
-                    }
-                    throw IllegalArgumentException("Unknown ViewModel class")
-                }
-            }
-        )[DetailViewModel::class.java]
-
         val tasksFactory = TasksViewModelFactory(repo)
         tasksViewModel = ViewModelProvider(this, tasksFactory)[TasksViewModel::class.java]
-
-        // 4. Precargar datos de prueba (opcional)
-        lifecycleScope.launch {
-            // Ejemplo: repo.insert(Student(name = "Evelyn", average = 0.0))
-        }
 
         enableEdgeToEdge()
         setContent {
@@ -93,8 +74,9 @@ class MainActivity : ComponentActivity() {
                     NavGraph(
                         navController = navController,
                         mainViewModel = mainViewModel,
-                        detailViewModel = detailViewModel,
+                       // detailViewModel = detailViewModel,
                         tasksViewModel = tasksViewModel,
+                        repo = repo,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

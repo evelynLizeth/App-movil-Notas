@@ -6,5 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "task")
 data class Task( @PrimaryKey(autoGenerate = true) val id: Long = 0,
                  val name: String,
-                 val pinned: Boolean = false
+                 val pinned: Boolean = false,
+                 val nota: Double = 0.0,
+                 val createdAt: Long = System.currentTimeMillis()
 )

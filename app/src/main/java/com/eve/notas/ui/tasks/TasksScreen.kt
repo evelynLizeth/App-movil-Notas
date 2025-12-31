@@ -42,6 +42,8 @@ fun TasksScreen(
     val scope = rememberCoroutineScope()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val editingTask by viewModel.editingTask.collectAsState()
+    val promedio by viewModel.promedio.collectAsState()
+    val message by viewModel.message.collectAsState()
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },

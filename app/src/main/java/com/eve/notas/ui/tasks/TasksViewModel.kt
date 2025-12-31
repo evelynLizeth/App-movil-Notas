@@ -19,12 +19,18 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
     val searchQuery: StateFlow<String> = _searchQuery
 
     // Filtrado reactivo con combine
-    val filteredTasks: StateFlow<List<Task>> =
+   /* val filteredTasks: StateFlow<List<Task>> =
         combine(tasks, searchQuery) { allTasks, query ->
             if (query.isBlank()) allTasks
             else allTasks.filter { it.name.contains(query, ignoreCase = true) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
+*/
+    val filteredTasks: StateFlow<List<Task>> =
+        combine(tasks, searchQuery) { allTasks, query ->
+            val ordered = allTasks.sortedByDescending { it.createdAt } // 👈 ordena por fecha
+            if (query.isBlank()) ordered
+            else ordered.filter { it.name.contains(query, ignoreCase = true) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     // Selección múltiple
     private val _selectedTasks = MutableStateFlow<List<Task>>(emptyList())
     val selectedTasks: StateFlow<List<Task>> = _selectedTasks
@@ -41,6 +47,22 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
     private val _editingTask = MutableStateFlow<Task?>(null)
     val editingTask: StateFlow<Task?> = _editingTask.asStateFlow()
 
+    // 🔹 Notas por tarea ( siempre Double, nunca null)
+    private val _notas = MutableStateFlow<Map<Long, Double>>(emptyMap())
+    val notas: StateFlow<Map<Long, Double>> = _notas
+
+
+    // 🔹 Promedio directo desde Room
+    val promedio: StateFlow<Double> = tasks.map { allTasks ->
+        val totalTareas = allTasks.size
+        val sumaNotas = allTasks.sumOf { it.nota }   // ✅ usa el campo nota de cada Task
+        if (totalTareas > 0) sumaNotas / totalTareas else 0.0
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+
+
+    // --- Funciones ---
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
     }
@@ -52,7 +74,6 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
             else
                 _selectedTasks.value + task
     }
-
     fun deleteTask(task: Task) {
         viewModelScope.launch {
             repo.delete(task)
@@ -115,5 +136,14 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
             _selectedTasks.value = emptyList()
             closeDeleteDialog()
         }
+    }
+    // 🔹 Actualizar nota de una tarea para un estudiante
+    fun updateNota(studentId: Long, taskId: Long, nota: Double) {
+        viewModelScope.launch {
+            repo.updateNota(studentId, taskId, nota) // ✅ persiste en Room
+        }
+    }
+    fun clearMessage() {
+        _message.value = null
     }
 }

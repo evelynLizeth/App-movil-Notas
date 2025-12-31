@@ -14,13 +14,16 @@ import com.eve.notas.ui.detail.DetailViewModel
 import com.eve.notas.ui.tasks.TasksScreen
 import com.eve.notas.ui.tasks.TasksViewModel
 import androidx.navigation.navArgument
+import com.eve.notas.data.repository.NotesRepository
+import com.eve.notas.ui.detail.DetailViewModelFactory
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
     mainViewModel: MainViewModel,
-    detailViewModel: DetailViewModel,
+    //detailViewModel: DetailViewModel,
     tasksViewModel: TasksViewModel,
+    repo: NotesRepository,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -44,11 +47,17 @@ fun NavGraph(
             arguments = listOf(navArgument("studentId") { type = NavType.LongType })
         ) { backStackEntry ->
             val studentId = backStackEntry.arguments?.getLong("studentId") ?: 0L
+
+            // 🔹 Crear el DetailViewModel con el studentId correcto
+            val detailViewModel: DetailViewModel = viewModel(
+                factory = DetailViewModelFactory(repo, studentId)
+            )
+
             DetailScreen(
                 viewModel = detailViewModel,
                 tasksViewModel = tasksViewModel,
-                studentId = studentId,
-                modifier = modifier
+                studentId = studentId
+               // modifier = modifier
             )
         }
 

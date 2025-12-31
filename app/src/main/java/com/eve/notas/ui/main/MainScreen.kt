@@ -22,6 +22,7 @@ import java.text.DecimalFormat
 import com.eve.notas.ui.components.ConfirmDialog
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import com.eve.notas.ui.components.MessageSnackbar
 
 @Composable
 fun MainScreen(
@@ -40,7 +41,12 @@ fun MainScreen(
     val context = LocalContext.current
     var newName by remember { mutableStateOf("") }
     val formatter = DecimalFormat("00.00")
+    val uiMessage by viewModel.uiMessage.collectAsState(initial = null)
 
+    MessageSnackbar(
+        message = uiMessage,
+        onDismiss = { viewModel.clearMessage() }
+    )
 
     Column(modifier = modifier.padding(16.dp)) {
 
@@ -53,7 +59,6 @@ fun MainScreen(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
-
         Spacer(Modifier.height(16.dp))
 
         // 🔹 Campo de búsqueda
@@ -71,9 +76,6 @@ fun MainScreen(
                 unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // línea gris cuando no está enfocado
             )
         )
-
-
-
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -102,7 +104,14 @@ fun MainScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // 🔹 Botón a la derecha
-                Button(onClick = onNavigateToTasks) {
+                /*Button(onClick = onNavigateToTasks) {
+                    Text("Crear tareas")
+                }*/
+                ExtendedFloatingActionButton(
+                    onClick = onNavigateToTasks,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                ) {
                     Text("Crear tareas")
                 }
             }
@@ -152,7 +161,6 @@ fun MainScreen(
                 }
             )
         }
-
         // 🔹 Diálogo para editar estudiante
         editingStudent?.let { student ->
             var editedName by remember(student.id) { mutableStateOf(student.name) }
@@ -233,7 +241,8 @@ fun MainScreen(
                             .fillMaxWidth()
                             .background(backgroundColor)
                             .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                             horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = selectedStudents.contains(student),
@@ -244,15 +253,17 @@ fun MainScreen(
                             student.name.ifBlank { "Ingrese nombre" },
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { viewModel.startEditing(student) }
+                                .clickable { viewModel.startEditing(student) },
+                                textAlign = TextAlign.Start
                         )
 
                         Text(
                             String.format("%05.2f", student.average), // ✅ dos enteros y dos decimales
-                            modifier = Modifier
-                                .weight(1f)
+                            modifier = Modifier.weight(1f)
                                 .clickable { onNavigateToDetail(student.id) },
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            color = if (student.average < 7.0) Color.Red
+                            else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

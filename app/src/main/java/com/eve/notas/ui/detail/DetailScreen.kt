@@ -15,6 +15,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.eve.notas.ui.tasks.TasksViewModel
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.ui.Alignment
+import com.eve.notas.data.model.Grade
+import com.eve.notas.ui.components.MessageSnackbar
 
 @Composable
 fun DetailScreen(
@@ -25,18 +34,89 @@ fun DetailScreen(
 ) {
     // 🔹 Observamos estados desde los ViewModels
     val student by viewModel.getStudentById(studentId).collectAsState(initial = null)
-    val tasks by tasksViewModel.tasks.collectAsState() // Flow → State
-    val promedio by viewModel.averageFlow.collectAsState(initial = 0.00)
+    val tasks by tasksViewModel.filteredTasks.collectAsState(initial = emptyList())
+    val grades by viewModel.grades.collectAsState()
+    //val promedio by viewModel.promedio.collectAsState(initial = 0.0)
+    val promedio by viewModel.promedio.collectAsState()
 
-    // 🔹 Estado local de notas (persistente en recomposiciones)
-    val notas = remember { mutableStateMapOf<Long, Double>() }
+    // 🔹 Estado local de notas editadas
+    val notasEditadas = remember { mutableStateMapOf<Long, String>() }
     var searchQuery by remember { mutableStateOf("") }
+    val message by viewModel.message.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Scaffold(
+       /* bottomBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    onClick = {
+                        notasEditadas.forEach { (taskId, texto) ->
+                            val normalized = texto.replace(",", ".")
+                            val nota = normalized.toDoubleOrNull() ?: 0.0
+                            viewModel.updateNota(taskId, nota)
+                        }
+                        viewModel.calcularPromedio()
+                        notasEditadas.clear()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = "Guardar",
+                        modifier = Modifier.size(48.dp),// defines el tamaño
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                // 🔹 Snackbar
+                MessageSnackbar(
+                    message = message,
+                    onDismiss = { viewModel.clearMessage() }
+                )
+
+            }
+        }*/
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    notasEditadas.forEach { (taskId, texto) ->
+                        val normalized = texto.replace(",", ".")
+                        val nota = normalized.toDoubleOrNull() ?: 0.0
+                        viewModel.updateNota(taskId, nota)
+                    }
+                    viewModel.calcularPromedio()
+                    notasEditadas.clear()
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = "Guardar"
+                    )
+                },
+                text = { Text("Guardar") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            )
+        },
+        floatingActionButtonPosition = FabPosition.End,
+        snackbarHost = {
+            MessageSnackbar(
+                message = message,
+                onDismiss = { viewModel.clearMessage() }
+            )
+        }
+
+
+
+    ) { innerPadding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
         // 🔹 Título
         Text(
             text = "Detalle de Notas",
@@ -50,33 +130,44 @@ fun DetailScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 Alumno
-        Text(
-            text = buildAnnotatedString {
-                // 🔹 Parte en negrita
-                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append("Alumno: ")
-                }
-                // 🔹 Parte normal
-                append(student?.name ?: "(sin nombre)")
-            },
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        // 🔹 Promedio
-        Text(
-            text = buildAnnotatedString {
-                // 🔹 Parte en negrita
-                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append("Promedio: ")
-                }
-                // 🔹 Parte normal (el número formateado)
-                append(String.format("%.2f", promedio))
-            },
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.fillMaxWidth(),
-            //textAlign = TextAlign.Center
-        )
+            // 🔹 Alumno
+            Text(
+                text = buildAnnotatedString {
+                    // Parte en color primario
+                    withStyle(
+                        style = SpanStyle(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        append("Alumno: ")
+                    }
+                    // Parte normal (negro)
+                    append(student?.name ?: "(sin nombre)")
+                },
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+// 🔹 Promedio
+            Text(
+                text = buildAnnotatedString {
+                    // Parte en color primario
+                    withStyle(
+                        style = SpanStyle(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        append("Promedio: ")
+                    }
+                    // Parte normal (negro)
+                    append(String.format("%.2f", promedio))
+                },
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,7 +204,8 @@ fun DetailScreen(
             Text(
                 "Notas",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center
             )
         }
 
@@ -124,48 +216,55 @@ fun DetailScreen(
         else tasks.filter { it.name.contains(searchQuery, ignoreCase = true) }
 
         // 🔹 Lista de tareas con notas editables
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            itemsIndexed(filteredTasks) { index, task ->
-                val backgroundColor = if (index % 2 == 0) {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) // fondo suave
-                } else {
-                    Color.Transparent // sin fondo
-                }
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                itemsIndexed(filteredTasks) { index, task ->
+                    // 🔹 Busca la nota guardada en Room
+                    val notaGuardada = grades.find { it.taskId == task.id }?.value?.toString() ?: ""
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(backgroundColor)
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(task.name, modifier = Modifier.weight(2f))
+                    // 🔹 Estado editable
+                    var notaTexto by remember(task.id) { mutableStateOf(notaGuardada) }
 
-                    TextField(
-                        value = notas[task.id]?.let { String.format("%.2f", it) } ?: "",
-                        onValueChange = { value ->
-                            // 🔹 Regex: hasta 2 enteros, opcional punto, hasta 2 decimales
-                            val regex = Regex("^\\d{0,2}(\\.?\\d{0,2})?$")
+                    // 🔹 Cada vez que cambie la nota en Room, actualiza el TextField
+                    LaunchedEffect(notaGuardada) {
+                        notaTexto = notaGuardada
+                    }
 
-                            if (regex.matches(value.replace(",", "."))) {
-                                val nota = value.replace(",", ".").toDoubleOrNull()
-                                if (nota != null) {
-                                    notas[task.id] = nota
-                                    val promedioFinal = notas.values.average()
-                                    viewModel.saveGrades(studentId, notas, promedioFinal)
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        ),
-                        label = { Text("Nota") }
-                    )
+                    val backgroundColor = if (index % 2 == 0) {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    } else {
+                        Color.Transparent
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(backgroundColor)
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            task.name,
+                            modifier = Modifier.weight(2f),
+                            textAlign = TextAlign.Start
+                        )
+                        TextField(
+                            value = notaTexto,
+                            onValueChange = { value ->
+                                notaTexto = value
+                                notasEditadas[task.id] = value //buffer local
+                            },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                                unfocusedIndicatorColor = Color.Transparent  //MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
                 }
             }
         }

@@ -56,6 +56,16 @@ class MainViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // 🔹 Mensajes de UI (éxito, info, etc.)
+    private val _uiMessage = MutableStateFlow<String?>(null)
+    val uiMessage: StateFlow<String?> = _uiMessage.asStateFlow()
+
+    fun clearMessage() {
+        _uiMessage.value = null
+    }
+    val count = _selectedStudents.value.size
+
+
     // -------------------------------
     // 🔹 Funciones de interacción
     // -------------------------------
@@ -85,6 +95,7 @@ class MainViewModel(
             _selectedStudents.value.forEach { repo.deleteStudent(it) }
             _selectedStudents.value = emptyList()
             closeDeleteDialog()
+            _uiMessage.value = "Se elimino los registros exitosamente."
         }
     }
 
@@ -105,6 +116,7 @@ class MainViewModel(
             repo.insert(Student(name = name, average = 0.0))
             _errorMessage.value = null
             closeAddDialog()
+            _uiMessage.value = "Registro creado con éxito."
         }
     }
 
@@ -124,6 +136,7 @@ class MainViewModel(
             repo.updateStudent(student.copy(name = newName))
             _editingStudent.value = null
             _errorMessage.value = null
+            _uiMessage.value = "Registro editado exitosamente."
         }
     }
 
