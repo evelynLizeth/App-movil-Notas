@@ -10,38 +10,50 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
 import androidx.navigation.compose.rememberNavController
+import androidx.room.Room
 import com.eve.notas.data.local.AppDatabase
 import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.navigation.NavGraph
 import com.eve.notas.ui.main.MainViewModel
-import com.eve.notas.ui.detail.DetailViewModel
 import com.eve.notas.ui.tasks.TasksViewModel
 import com.eve.notas.ui.tasks.TasksViewModelFactory
 import com.eve.notas.ui.theme.AppMovilNotasTheme
-import kotlinx.coroutines.launch
 
+/**
+ * Punto de entrada de la app.
+ *
+ * Responsabilidades:
+ * - Inicializar la base de datos Room con sus migraciones
+ * - Crear el repositorio único que comparten todos los ViewModels
+ * - Instanciar los ViewModels compartidos (MainViewModel, TasksViewModel)
+ * - Configurar el árbol de Composables con el tema y la navegación
+ */
 class MainActivity : ComponentActivity() {
 
-    // ✅ propiedades de clase
+    /** ViewModel de la pantalla principal. Se inicializa en onCreate */
     private lateinit var mainViewModel: MainViewModel
+
+    /** ViewModel de la pantalla de tareas. Se comparte con DetailScreen */
     private lateinit var tasksViewModel: TasksViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
-        // 1. Inicializar Room
+        // ── 1. Inicializar la base de datos Room ──────────────────────────────
+        // Se registran las migraciones para preservar los datos del usuario
+        // al actualizar la versión del esquema.
         val db = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java,
             "notas_db"
-        ).fallbackToDestructiveMigration()
+        )
+            .addMigrations(AppDatabase.MIGRATION_15_16) // migración v15 → v16
+            .addMigrations(AppDatabase.MIGRATION_16_17) // migración v16 → v17
             .build()
 
-        // 2. Crear repositorio con DAOs
+        // ── 2. Crear el repositorio con los DAOs ──────────────────────────────
+        // El repositorio es la única fuente de verdad para todos los ViewModels
         val repo = NotesRepository(
             db,
             db.studentDao(),
@@ -49,7 +61,9 @@ class MainActivity : ComponentActivity() {
             db.taskDao()
         )
 
-        // 3. Crear ViewModels y asignarlos a las propiedades
+        // ── 3. Instanciar los ViewModels ──────────────────────────────────────
+
+        // MainViewModel requiere Application para acceder al contexto (PDF)
         mainViewModel = ViewModelProvider(
             this,
             object : ViewModelProvider.Factory {
@@ -63,18 +77,20 @@ class MainActivity : ComponentActivity() {
             }
         )[MainViewModel::class.java]
 
+        // TasksViewModel se comparte entre TasksScreen y DetailScreen
         val tasksFactory = TasksViewModelFactory(repo)
         tasksViewModel = ViewModelProvider(this, tasksFactory)[TasksViewModel::class.java]
 
+        // ── 4. Configurar la UI ───────────────────────────────────────────────
         enableEdgeToEdge()
         setContent {
             AppMovilNotasTheme {
                 val navController = rememberNavController()
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    // Pasa el padding del Scaffold para respetar barras del sistema
                     NavGraph(
                         navController = navController,
                         mainViewModel = mainViewModel,
-                       // detailViewModel = detailViewModel,
                         tasksViewModel = tasksViewModel,
                         repo = repo,
                         modifier = Modifier.padding(innerPadding)

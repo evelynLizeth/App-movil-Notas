@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,6 +24,9 @@ import com.eve.notas.ui.components.ConfirmDialog
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import com.eve.notas.ui.components.MessageSnackbar
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 
 @Composable
 fun MainScreen(
@@ -36,12 +40,18 @@ fun MainScreen(
     val selectedStudents by viewModel.selectedStudents.collectAsState()
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
+    val showScaleChangeDialog by viewModel.showScaleChangeDialog.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val editingStudent by viewModel.editingStudent.collectAsState()
+    val notaMaxima by viewModel.notaMaxima.collectAsState()
     val context = LocalContext.current
     var newName by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
     val formatter = DecimalFormat("00.00")
     val uiMessage by viewModel.uiMessage.collectAsState(initial = null)
+
+    // ── Opciones de escala de calificación ────────────────────────────────────
+    val escalas = listOf(10 to "10", 20 to "20")
 
     MessageSnackbar(
         message = uiMessage,
@@ -60,24 +70,6 @@ fun MainScreen(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(16.dp))
-
-        // 🔹 Campo de búsqueda
-        TextField(
-            value = searchQuery,
-            onValueChange = { viewModel.onSearchQueryChanged(it) },
-            placeholder = { Text("Buscar estudiante") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),   // fondo suave con foco
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), // fondo suave sin foco
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),  // fondo suave deshabilitado
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,    // línea azul/primaria al enfocar
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // línea gris cuando no está enfocado
-            )
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         // 🔹 Panel de acciones
         Row(
@@ -100,6 +92,12 @@ fun MainScreen(
                 }) {
                     Icon(Icons.Filled.Print, contentDescription = "Imprimir")
                 }
+                IconButton(onClick = {
+                    showSearch = !showSearch
+                    if (!showSearch) viewModel.onSearchQueryChanged("")
+                }) {
+                    Icon(Icons.Default.Search, contentDescription = "Buscar")
+                }
                 // 🔹 Empuja el botón hacia la derecha
                 Spacer(modifier = Modifier.weight(1f))
 
@@ -117,13 +115,42 @@ fun MainScreen(
             }
         }
 
-        // 🔹 Diálogo de confirmación de borrado
+        // 🔹 Campo de búsqueda (visible solo al pulsar la lupa)
+        if (showSearch) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { viewModel.onSearchQueryChanged(it) },
+                placeholder = { Text("Buscar estudiante") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                    unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // 🔹 Diálogo de confirmación de borrado de estudiantes
         if (showDeleteDialog) {
             ConfirmDialog(
                 title = "¿Eliminar estudiantes?",
                 message = "¿Estás segura de que deseas eliminar los estudiantes seleccionados?",
                 onConfirm = { viewModel.deleteSelected() },
                 onDismiss = { viewModel.closeDeleteDialog() }
+            )
+        }
+
+        // 🔹 Diálogo de advertencia al cambiar la escala de nota
+        if (showScaleChangeDialog) {
+            ConfirmDialog(
+                title = "Cambiar escala de nota",
+                message = "Si cambia la escala de nota se borrarán todas las notas ingresadas de los estudiantes. ¿Desea continuar?",
+                onConfirm = { viewModel.confirmScaleChange() },
+                onDismiss = { viewModel.cancelScaleChange() }
             )
         }
 
@@ -195,6 +222,35 @@ fun MainScreen(
             )
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Selector de escala de calificación global ──────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)) {
+                        append("Nota / ")
+                    }
+                },
+                style = MaterialTheme.typography.titleMedium
+            )
+            escalas.forEach { (maximo, etiqueta) ->
+                Checkbox(
+                    checked = notaMaxima == maximo,
+                    onCheckedChange = { viewModel.requestScaleChange(maximo) }
+                )
+                Text(
+                    text = etiqueta,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.clickable { viewModel.requestScaleChange(maximo) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // 🔹 Encabezado de la tabla estudiantes
@@ -258,12 +314,15 @@ fun MainScreen(
                         )
 
                         Text(
-                            String.format("%05.2f", student.average), // ✅ dos enteros y dos decimales
+                            String.format("%05.2f", student.average),
                             modifier = Modifier.weight(1f)
                                 .clickable { onNavigateToDetail(student.id) },
                             textAlign = TextAlign.Center,
-                            color = if (student.average < 7.0) Color.Red
-                            else MaterialTheme.colorScheme.onSurface
+                            // Umbral de color rojo: 70 % del máximo guardado por estudiante
+                            // Escala 10 → rojo si promedio < 7
+                            // Escala 20 → rojo si promedio < 14
+                            color = if (student.average < notaMaxima * 0.7) Color.Red
+                                    else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

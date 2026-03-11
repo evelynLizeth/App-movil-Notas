@@ -1,6 +1,8 @@
 package com.eve.notas.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -17,38 +19,56 @@ import androidx.navigation.navArgument
 import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.ui.detail.DetailViewModelFactory
 
+/**
+ * Define el grafo de navegación de la app usando Navigation Compose.
+ * Cada destino es un Composable registrado con su ruta correspondiente de [Routes].
+ *
+ * @param navController Controlador de navegación que gestiona la pila de pantallas
+ * @param mainViewModel ViewModel compartido de la pantalla principal
+ * @param tasksViewModel ViewModel compartido de la pantalla de tareas
+ * @param repo Repositorio inyectado para crear el DetailViewModel con factory
+ * @param modifier Modificador opcional para aplicar padding u otros estilos
+ */
 @Composable
 fun NavGraph(
     navController: NavHostController,
     mainViewModel: MainViewModel,
-    //detailViewModel: DetailViewModel,
     tasksViewModel: TasksViewModel,
     repo: NotesRepository,
     modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = "main",
+        startDestination = Routes.MAIN, // pantalla inicial de la app
         modifier = modifier
     ) {
-        composable("main") {
+
+        // ── Pantalla principal: lista de estudiantes ──────────────────────────
+        composable(Routes.MAIN) {
             MainScreen(
                 viewModel = mainViewModel,
                 onNavigateToDetail = { studentId ->
-                    navController.navigate("detail/$studentId")
+                    // Navega al detalle usando la ruta generada con el ID del estudiante
+                    navController.navigate(Routes.detailRoute(studentId))
                 },
-                onNavigateToTasks = { navController.navigate("tasks") },
+                onNavigateToTasks = { navController.navigate(Routes.TASKS) },
                 modifier = modifier
             )
         }
 
+        // ── Pantalla de detalle: notas de un estudiante ───────────────────────
         composable(
-            route = "detail/{studentId}",
+            route = Routes.DETAIL,
+            // Declara que el argumento studentId es de tipo Long
             arguments = listOf(navArgument("studentId") { type = NavType.LongType })
         ) { backStackEntry ->
+            // Extrae el studentId de los argumentos de la ruta
             val studentId = backStackEntry.arguments?.getLong("studentId") ?: 0L
 
-            // 🔹 Crear el DetailViewModel con el studentId correcto
+            // Escala global definida en MainScreen, reactiva
+            val notaMaxima by mainViewModel.notaMaxima.collectAsState()
+
+            // Crea el DetailViewModel con su factory para pasarle el studentId
             val detailViewModel: DetailViewModel = viewModel(
                 factory = DetailViewModelFactory(repo, studentId)
             )
@@ -56,12 +76,13 @@ fun NavGraph(
             DetailScreen(
                 viewModel = detailViewModel,
                 tasksViewModel = tasksViewModel,
-                studentId = studentId
-               // modifier = modifier
+                studentId = studentId,
+                notaMaxima = notaMaxima
             )
         }
 
-        composable("tasks") {
+        // ── Pantalla de tareas: CRUD de tareas globales ───────────────────────
+        composable(Routes.TASKS) {
             TasksScreen(viewModel = tasksViewModel, modifier = modifier)
         }
     }
