@@ -7,24 +7,40 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.eve.notas.data.model.Student
 import com.eve.notas.data.model.Task
 import com.eve.notas.data.model.Grade
+import com.eve.notas.data.model.User
+import com.eve.notas.data.model.Institution
+import com.eve.notas.data.model.Course
 import com.eve.notas.data.local.dao.StudentDao
 import com.eve.notas.data.local.dao.TaskDao
 import com.eve.notas.data.local.dao.GradeDao
+import com.eve.notas.data.local.dao.UserDao
+import com.eve.notas.data.local.dao.InstitutionDao
+import com.eve.notas.data.local.dao.CourseDao
 
 /**
  * Base de datos principal de la app usando Room.
  *
- * Contiene las tres entidades del dominio:
+ * Contiene todas las entidades del dominio:
  * - [Student]: lista de estudiantes con su promedio
  * - [Task]: tareas globales de la app
  * - [Grade]: notas por combinación (estudiante, tarea)
+ * - [User]: usuarios del sistema con autenticación
+ * - [Institution]: instituciones educativas por usuario
+ * - [Course]: cursos dentro de cada institución
  *
  * Las migraciones se definen en el companion object para mantener
  * el historial de cambios del esquema en un solo lugar.
  */
 @Database(
-    entities = [Student::class, Task::class, Grade::class],
-    version = 17,
+    entities = [
+        Student::class,
+        Task::class,
+        Grade::class,
+        User::class,
+        Institution::class,
+        Course::class
+    ],
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +53,15 @@ abstract class AppDatabase : RoomDatabase() {
 
     /** DAO para operaciones sobre la tabla de notas */
     abstract fun gradeDao(): GradeDao
+
+    /** DAO para operaciones sobre la tabla de usuarios */
+    abstract fun userDao(): UserDao
+
+    /** DAO para operaciones sobre la tabla de instituciones */
+    abstract fun institutionDao(): InstitutionDao
+
+    /** DAO para operaciones sobre la tabla de cursos */
+    abstract fun courseDao(): CourseDao
 
     companion object {
 

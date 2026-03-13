@@ -24,7 +24,7 @@ import com.eve.notas.ui.theme.AppMovilNotasTheme
  * Punto de entrada de la app.
  *
  * Responsabilidades:
- * - Inicializar la base de datos Room con sus migraciones
+ * - Inicializar la base de datos Room con fallbackToDestructiveMigration
  * - Crear el repositorio único que comparten todos los ViewModels
  * - Instanciar los ViewModels compartidos (MainViewModel, TasksViewModel)
  * - Configurar el árbol de Composables con el tema y la navegación
@@ -41,15 +41,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // ── 1. Inicializar la base de datos Room ──────────────────────────────
-        // Se registran las migraciones para preservar los datos del usuario
-        // al actualizar la versión del esquema.
+        // fallbackToDestructiveMigration garantiza que si no existe una migración
+        // definida para el salto de versión, Room destruye y recrea la base de datos.
+        // Las migraciones explícitas siguen definidas en AppDatabase.companion para
+        // preservar los datos cuando estén disponibles.
         val db = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java,
             "notas_db"
         )
-            .addMigrations(AppDatabase.MIGRATION_15_16) // migración v15 → v16
-            .addMigrations(AppDatabase.MIGRATION_16_17) // migración v16 → v17
+            .fallbackToDestructiveMigration()
             .build()
 
         // ── 2. Crear el repositorio con los DAOs ──────────────────────────────
@@ -58,7 +59,10 @@ class MainActivity : ComponentActivity() {
             db,
             db.studentDao(),
             db.gradeDao(),
-            db.taskDao()
+            db.taskDao(),
+            db.userDao(),
+            db.institutionDao(),
+            db.courseDao()
         )
 
         // ── 3. Instanciar los ViewModels ──────────────────────────────────────

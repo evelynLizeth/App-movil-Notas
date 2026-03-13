@@ -18,15 +18,34 @@ import com.eve.notas.ui.tasks.TasksViewModel
 import androidx.navigation.navArgument
 import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.ui.detail.DetailViewModelFactory
+import com.eve.notas.ui.login.LoginScreen
+import com.eve.notas.ui.login.LoginViewModel
+import com.eve.notas.ui.login.LoginViewModelFactory
+import com.eve.notas.ui.register.RegisterScreen
+import com.eve.notas.ui.register.RegisterViewModel
+import com.eve.notas.ui.register.RegisterViewModelFactory
+import com.eve.notas.ui.changepassword.ChangePasswordScreen
+import com.eve.notas.ui.changepassword.ChangePasswordViewModel
+import com.eve.notas.ui.changepassword.ChangePasswordViewModelFactory
+import com.eve.notas.ui.institutions.InstitutionsScreen
+import com.eve.notas.ui.institutions.InstitutionsViewModel
+import com.eve.notas.ui.institutions.InstitutionsViewModelFactory
+import com.eve.notas.ui.courses.CoursesScreen
+import com.eve.notas.ui.courses.CoursesViewModel
+import com.eve.notas.ui.courses.CoursesViewModelFactory
 
 /**
  * Define el grafo de navegación de la app usando Navigation Compose.
  * Cada destino es un Composable registrado con su ruta correspondiente de [Routes].
  *
+ * La navegación comienza en LOGIN y progresa a través de:
+ * LOGIN → INSTITUTIONS (o CHANGE_PASSWORD si tiene contraseña temporal)
+ * INSTITUTIONS → COURSES → MAIN → DETAIL
+ *
  * @param navController Controlador de navegación que gestiona la pila de pantallas
  * @param mainViewModel ViewModel compartido de la pantalla principal
  * @param tasksViewModel ViewModel compartido de la pantalla de tareas
- * @param repo Repositorio inyectado para crear el DetailViewModel con factory
+ * @param repo Repositorio inyectado para crear ViewModels con factory
  * @param modifier Modificador opcional para aplicar padding u otros estilos
  */
 @Composable
@@ -39,9 +58,109 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.MAIN, // pantalla inicial de la app
+        startDestination = Routes.LOGIN, // la app comienza en el login
         modifier = modifier
     ) {
+
+        // ── Pantalla de inicio de sesión ──────────────────────────────────────
+        composable(Routes.LOGIN) {
+            val loginViewModel: LoginViewModel = viewModel(
+                factory = LoginViewModelFactory(repo)
+            )
+            LoginScreen(
+                viewModel = loginViewModel,
+                onNavigateToRegister = {
+                    navController.navigate(Routes.REGISTER)
+                },
+                onNavigateToInstitutions = { userId ->
+                    navController.navigate(Routes.institutionsRoute(userId)) {
+                        // Elimina el login del back stack para que el usuario
+                        // no pueda volver al login con el botón atrás
+                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateToChangePassword = { userId ->
+                    navController.navigate(Routes.changePasswordRoute(userId)) {
+                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                },
+                modifier = modifier
+            )
+        }
+
+        // ── Pantalla de registro ──────────────────────────────────────────────
+        composable(Routes.REGISTER) {
+            val registerViewModel: RegisterViewModel = viewModel(
+                factory = RegisterViewModelFactory(repo)
+            )
+            RegisterScreen(
+                viewModel = registerViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                modifier = modifier
+            )
+        }
+
+        // ── Pantalla de cambio de contraseña obligatorio ──────────────────────
+        composable(
+            route = Routes.CHANGE_PASSWORD,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
+            val changePasswordViewModel: ChangePasswordViewModel = viewModel(
+                factory = ChangePasswordViewModelFactory(repo, userId)
+            )
+            ChangePasswordScreen(
+                viewModel = changePasswordViewModel,
+                onSuccess = {
+                    navController.navigate(Routes.institutionsRoute(userId)) {
+                        popUpTo(Routes.CHANGE_PASSWORD) { inclusive = true }
+                    }
+                },
+                modifier = modifier
+            )
+        }
+
+        // ── Pantalla de instituciones ─────────────────────────────────────────
+        composable(
+            route = Routes.INSTITUTIONS,
+            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getLong("userId") ?: 0L
+            val institutionsViewModel: InstitutionsViewModel = viewModel(
+                factory = InstitutionsViewModelFactory(repo, userId)
+            )
+            InstitutionsScreen(
+                viewModel = institutionsViewModel,
+                onNavigateToCourses = { institutionId ->
+                    navController.navigate(Routes.coursesRoute(institutionId))
+                },
+                modifier = modifier
+            )
+        }
+
+        // ── Pantalla de cursos ────────────────────────────────────────────────
+        composable(
+            route = Routes.COURSES,
+            arguments = listOf(navArgument("institutionId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val institutionId = backStackEntry.arguments?.getLong("institutionId") ?: 0L
+            val coursesViewModel: CoursesViewModel = viewModel(
+                factory = CoursesViewModelFactory(repo, institutionId)
+            )
+
+            val institutionName = "Cursos"
+
+            CoursesScreen(
+                viewModel = coursesViewModel,
+                institutionName = institutionName,
+                onNavigateToMain = {
+                    navController.navigate(Routes.MAIN)
+                },
+                modifier = modifier
+            )
+        }
 
         // ── Pantalla principal: lista de estudiantes ──────────────────────────
         composable(Routes.MAIN) {

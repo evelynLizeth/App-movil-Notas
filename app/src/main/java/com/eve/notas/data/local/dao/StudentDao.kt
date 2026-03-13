@@ -88,4 +88,24 @@ interface StudentDao {
     /** Resetea el promedio de todos los estudiantes a 0. */
     @Query("UPDATE students SET average = 0.0")
     suspend fun resetAllAverages()
+
+    /**
+     * Obtiene todos los estudiantes pertenecientes a un curso específico,
+     * ordenados alfabéticamente por nombre.
+     * Retorna un [Flow] para observar cambios en tiempo real.
+     *
+     * @param courseId ID del curso al que pertenecen los estudiantes
+     */
+    @Query("SELECT * FROM students WHERE courseId = :courseId ORDER BY name ASC")
+    fun getByCourse(courseId: Long): Flow<List<Student>>
+
+    /**
+     * Busca estudiantes de un curso cuyo nombre contenga el texto dado.
+     * La búsqueda es insensible a mayúsculas/minúsculas.
+     *
+     * @param courseId ID del curso en el que buscar
+     * @param name Texto a buscar dentro del nombre del estudiante
+     */
+    @Query("SELECT * FROM students WHERE courseId = :courseId AND name LIKE '%' || :name || '%'")
+    fun searchByCourseAndName(courseId: Long, name: String): Flow<List<Student>>
 }

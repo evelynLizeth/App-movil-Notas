@@ -31,5 +31,11 @@ data class Student(
      * - Escala 10 → rojo si promedio < 7  (70 % de 10)
      * - Escala 20 → rojo si promedio < 14 (70 % de 20)
      */
-    val notaMaxima: Int = 20
+    val notaMaxima: Int = 20,
+
+    /**
+     * ID del curso al que pertenece este estudiante.
+     * Valor 0 indica que el estudiante no está asignado a ningún curso específico.
+     */
+    val courseId: Long = 0
 )
