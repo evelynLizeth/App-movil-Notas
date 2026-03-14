@@ -37,6 +37,22 @@ class MainViewModel(
      */
     val students: Flow<List<Student>> = repo.getStudents()
 
+    // ── Contexto seleccionado (institución y grado) ───────────────────────────
+
+    /** Nombre de la institución seleccionada al ingresar desde CoursesScreen */
+    private val _institutionName = MutableStateFlow("")
+    val institutionName: StateFlow<String> = _institutionName.asStateFlow()
+
+    /** Nombre del grado/curso seleccionado */
+    private val _courseName = MutableStateFlow("")
+    val courseName: StateFlow<String> = _courseName.asStateFlow()
+
+    /** Establece la institución y el grado activos al navegar desde Courses a Main */
+    fun setSelectedContext(institutionName: String, courseName: String) {
+        _institutionName.value = institutionName
+        _courseName.value = courseName
+    }
+
     // ── Escala de calificación global ─────────────────────────────────────────
 
     /**

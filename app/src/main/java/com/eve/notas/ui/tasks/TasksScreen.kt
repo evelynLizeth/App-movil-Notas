@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,10 +31,14 @@ import com.eve.notas.ui.components.ConfirmDialog
  * @param viewModel ViewModel que gestiona el estado y la lógica de esta pantalla
  * @param modifier Modificador opcional para padding externo
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     modifier: Modifier = Modifier,
-    viewModel: TasksViewModel
+    viewModel: TasksViewModel,
+    onLogout: () -> Unit,
+    institutionName: String = "",
+    courseName: String = ""
 ) {
     // ── Observar estado desde el ViewModel ────────────────────────────────────
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -51,7 +56,35 @@ fun TasksScreen(
     var newTaskName by remember { mutableStateOf("") }
 
     Scaffold(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (institutionName.isNotBlank()) {
+                        Text(
+                            text = "$institutionName  |  $courseName",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier

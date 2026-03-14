@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -26,16 +27,18 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToMain Callback para navegar a la pantalla principal de estudiantes
  * @param modifier Modificador opcional
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoursesScreen(
     viewModel: CoursesViewModel,
-    institutionName: String,
-    onNavigateToMain: () -> Unit,
+    onNavigateToMain: (courseName: String) -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val courses by viewModel.courses.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val institutionName by viewModel.institutionName.collectAsState()
 
     var newName by remember { mutableStateOf("") }
     var newParallel by remember { mutableStateOf("") }
@@ -119,9 +122,38 @@ fun CoursesScreen(
         )
     }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = institutionName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                },
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .padding(16.dp)
     ) {
         Text(
@@ -161,7 +193,7 @@ fun CoursesScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(backgroundColor)
-                            .clickable { onNavigateToMain() }
+                            .clickable { onNavigateToMain("${course.name} - ${course.parallel}") }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -184,4 +216,6 @@ fun CoursesScreen(
             Text("Agregar Curso")
         }
     }
+
+    } // end Scaffold
 }

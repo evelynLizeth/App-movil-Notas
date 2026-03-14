@@ -34,6 +34,16 @@ class CoursesViewModel(
         repo.getCoursesByInstitution(institutionId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Nombre de la institución cargado desde el repositorio */
+    private val _institutionName = MutableStateFlow("")
+    val institutionName: StateFlow<String> = _institutionName.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _institutionName.value = repo.getInstitutionById(institutionId)?.name ?: ""
+        }
+    }
+
     /** Controla la visibilidad del diálogo para agregar curso */
     private val _showAddDialog = MutableStateFlow(false)
     val showAddDialog: StateFlow<Boolean> = _showAddDialog.asStateFlow()

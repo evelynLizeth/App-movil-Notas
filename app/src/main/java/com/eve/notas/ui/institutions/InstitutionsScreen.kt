@@ -25,10 +25,12 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToCourses Callback para navegar a cursos con el institutionId
  * @param modifier Modificador opcional
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstitutionsScreen(
     viewModel: InstitutionsViewModel,
     onNavigateToCourses: (Long) -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val institutions by viewModel.institutions.collectAsState()
@@ -95,9 +97,31 @@ fun InstitutionsScreen(
         )
     }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {},
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .padding(16.dp)
     ) {
         Text(
@@ -160,4 +184,6 @@ fun InstitutionsScreen(
             Text("Agregar Institución")
         }
     }
+
+    } // end Scaffold
 }

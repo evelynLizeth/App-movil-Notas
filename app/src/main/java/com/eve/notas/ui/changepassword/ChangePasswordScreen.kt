@@ -24,10 +24,12 @@ import androidx.compose.ui.unit.dp
  * @param onSuccess Callback para navegar a instituciones tras el cambio exitoso
  * @param modifier Modificador opcional
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangePasswordScreen(
     viewModel: ChangePasswordViewModel,
     onSuccess: () -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // ── Observar estado desde el ViewModel ───────────────────────────────────
@@ -54,9 +56,31 @@ fun ChangePasswordScreen(
         unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     )
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {},
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -142,4 +166,6 @@ fun ChangePasswordScreen(
             Text("Guardar")
         }
     }
+
+    } // end Scaffold
 }

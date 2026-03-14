@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,11 +29,13 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToTasks: () -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -49,16 +52,47 @@ fun MainScreen(
     var showSearch by remember { mutableStateOf(false) }
     val formatter = DecimalFormat("00.00")
     val uiMessage by viewModel.uiMessage.collectAsState(initial = null)
+    val institutionName by viewModel.institutionName.collectAsState()
+    val courseName by viewModel.courseName.collectAsState()
 
     // ── Opciones de escala de calificación ────────────────────────────────────
     val escalas = listOf(10 to "10", 20 to "20")
 
-    MessageSnackbar(
-        message = uiMessage,
-        onDismiss = { viewModel.clearMessage() }
-    )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (institutionName.isNotBlank()) {
+                        Text(
+                            text = "$institutionName  |  $courseName",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        },
+        snackbarHost = {
+            MessageSnackbar(message = uiMessage, onDismiss = { viewModel.clearMessage() })
+        }
+    ) { innerPadding ->
 
-    Column(modifier = modifier.padding(16.dp)) {
+    Column(modifier = modifier.padding(innerPadding).padding(16.dp)) {
 
         Text(
             text = "Lista de Notas",
@@ -329,4 +363,6 @@ fun MainScreen(
             }
         }
     }
+
+    } // end Scaffold
 }

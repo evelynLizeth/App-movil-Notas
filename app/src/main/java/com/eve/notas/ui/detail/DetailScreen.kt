@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import com.eve.notas.ui.components.MessageSnackbar
 
@@ -42,6 +43,9 @@ fun DetailScreen(
     tasksViewModel: TasksViewModel,
     studentId: Long,
     notaMaxima: Int,
+    onLogout: () -> Unit,
+    institutionName: String = "",
+    courseName: String = "",
     modifier: Modifier = Modifier
 ) {
     // ── Observar estado desde los ViewModels ──────────────────────────────────
@@ -71,6 +75,34 @@ fun DetailScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (institutionName.isNotBlank()) {
+                        Text(
+                            text = "$institutionName  |  $courseName",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = onLogout,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 8.dp).height(32.dp)
+                    ) {
+                        Text("Cerrar sesión", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {

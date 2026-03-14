@@ -118,6 +118,11 @@ fun NavGraph(
                         popUpTo(Routes.CHANGE_PASSWORD) { inclusive = true }
                     }
                 },
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 modifier = modifier
             )
         }
@@ -136,6 +141,11 @@ fun NavGraph(
                 onNavigateToCourses = { institutionId ->
                     navController.navigate(Routes.coursesRoute(institutionId))
                 },
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 modifier = modifier
             )
         }
@@ -149,14 +159,18 @@ fun NavGraph(
             val coursesViewModel: CoursesViewModel = viewModel(
                 factory = CoursesViewModelFactory(repo, institutionId)
             )
-
-            val institutionName = "Cursos"
+            val institutionName by coursesViewModel.institutionName.collectAsState()
 
             CoursesScreen(
                 viewModel = coursesViewModel,
-                institutionName = institutionName,
-                onNavigateToMain = {
+                onNavigateToMain = { courseName ->
+                    mainViewModel.setSelectedContext(institutionName, courseName)
                     navController.navigate(Routes.MAIN)
+                },
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 },
                 modifier = modifier
             )
@@ -171,6 +185,11 @@ fun NavGraph(
                     navController.navigate(Routes.detailRoute(studentId))
                 },
                 onNavigateToTasks = { navController.navigate(Routes.TASKS) },
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 modifier = modifier
             )
         }
@@ -186,6 +205,8 @@ fun NavGraph(
 
             // Escala global definida en MainScreen, reactiva
             val notaMaxima by mainViewModel.notaMaxima.collectAsState()
+            val institutionName by mainViewModel.institutionName.collectAsState()
+            val courseName by mainViewModel.courseName.collectAsState()
 
             // Crea el DetailViewModel con su factory para pasarle el studentId
             val detailViewModel: DetailViewModel = viewModel(
@@ -196,13 +217,32 @@ fun NavGraph(
                 viewModel = detailViewModel,
                 tasksViewModel = tasksViewModel,
                 studentId = studentId,
-                notaMaxima = notaMaxima
+                notaMaxima = notaMaxima,
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                institutionName = institutionName,
+                courseName = courseName
             )
         }
 
         // ── Pantalla de tareas: CRUD de tareas globales ───────────────────────
         composable(Routes.TASKS) {
-            TasksScreen(viewModel = tasksViewModel, modifier = modifier)
+            val institutionName by mainViewModel.institutionName.collectAsState()
+            val courseName by mainViewModel.courseName.collectAsState()
+            TasksScreen(
+                viewModel = tasksViewModel,
+                modifier = modifier,
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                institutionName = institutionName,
+                courseName = courseName
+            )
         }
     }
 }
