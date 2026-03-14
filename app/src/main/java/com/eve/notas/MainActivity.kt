@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
             AppDatabase::class.java,
             "notas_db"
         )
+            .addMigrations(AppDatabase.MIGRATION_18_19)
             .fallbackToDestructiveMigration()
             .build()
 

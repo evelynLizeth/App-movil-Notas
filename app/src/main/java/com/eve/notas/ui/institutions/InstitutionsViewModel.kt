@@ -41,6 +41,16 @@ class InstitutionsViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    /** Mensaje de feedback para el usuario (éxito, eliminación, etc.) */
+    private val _uiMessage = MutableStateFlow<String?>(null)
+    val uiMessage: StateFlow<String?> = _uiMessage.asStateFlow()
+
+    fun clearMessage() { _uiMessage.value = null }
+
+    /** Institución que se está editando actualmente. Null si no hay edición activa */
+    private val _editingInstitution = MutableStateFlow<Institution?>(null)
+    val editingInstitution: StateFlow<Institution?> = _editingInstitution.asStateFlow()
+
     /** Abre el diálogo de agregar institución */
     fun openAddDialog() { _showAddDialog.value = true }
 
@@ -49,6 +59,36 @@ class InstitutionsViewModel(
 
     /** Limpia el mensaje de error */
     fun clearError() { _errorMessage.value = null }
+
+    /** Abre el diálogo de edición para la institución seleccionada */
+    fun startEditing(institution: Institution) {
+        _editingInstitution.value = institution
+    }
+
+    /** Cancela la edición activa */
+    fun cancelEditing() {
+        _editingInstitution.value = null
+        _errorMessage.value = null
+    }
+
+    /** Valida y guarda el nuevo nombre de la institución */
+    fun finishEditing(institution: Institution, newName: String) {
+        viewModelScope.launch {
+            if (newName.isBlank()) {
+                _errorMessage.value = "El nombre no puede estar vacío"
+                return@launch
+            }
+            val existing = repo.getInstitutionByName(userId, newName.trim())
+            if (existing != null && existing.id != institution.id) {
+                _errorMessage.value = "Ya existe una institución con ese nombre"
+                return@launch
+            }
+            repo.updateInstitution(institution.copy(name = newName.trim()))
+            _editingInstitution.value = null
+            _errorMessage.value = null
+            _uiMessage.value = "Registro editado exitosamente."
+        }
+    }
 
     /**
      * Valida e inserta una nueva institución para el usuario actual.
@@ -62,8 +102,19 @@ class InstitutionsViewModel(
                 _errorMessage.value = "El nombre no puede estar vacío"
                 return@launch
             }
-            repo.addInstitution(Institution(userId = userId, name = name))
+            if (repo.getInstitutionByName(userId, name.trim()) != null) {
+                _errorMessage.value = "Ya existe una institución con ese nombre"
+                return@launch
+            }
+            repo.addInstitution(Institution(userId = userId, name = name.trim()))
             closeAddDialog()
+        }
+    }
+
+    fun deleteInstitution(institution: Institution) {
+        viewModelScope.launch {
+            repo.deleteInstitutionCascade(institution)
+            _uiMessage.value = "Registro eliminado exitosamente."
         }
     }
 }

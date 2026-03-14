@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
+import com.eve.notas.ui.components.ConfirmDialog
 import com.eve.notas.ui.components.MessageSnackbar
 
 /**
@@ -61,6 +63,21 @@ fun DetailScreen(
     // Buffer temporal: acumula las notas editadas antes de persistir al guardar
     val notasEditadas = remember { mutableStateMapOf<Long, String>() }
     var searchQuery by remember { mutableStateOf("") }
+    var pendingDeleteTaskId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteTaskName by remember { mutableStateOf("") }
+
+    if (pendingDeleteTaskId != null) {
+        ConfirmDialog(
+            title = "Eliminar nota",
+            message = "¿Eliminar la nota de \"$pendingDeleteTaskName\"?",
+            onConfirm = {
+                viewModel.deleteGrade(pendingDeleteTaskId!!)
+                notasEditadas.remove(pendingDeleteTaskId)
+                pendingDeleteTaskId = null
+            },
+            onDismiss = { pendingDeleteTaskId = null }
+        )
+    }
 
     // Umbral de color rojo: 70 % del máximo (7 para escala 10, 14 para escala 20)
     val umbralRojo = notaMaxima * 0.7
@@ -93,7 +110,7 @@ fun DetailScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            contentColor = Color.Black
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 8.dp).height(32.dp)
@@ -250,73 +267,93 @@ fun DetailScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                itemsIndexed(filteredTasks) { index, task ->
+                itemsIndexed(filteredTasks, key = { _, task -> task.id }) { index, task ->
                     val notaGuardada = grades.find { it.taskId == task.id }?.value
                         ?.let { String.format("%.2f", it) } ?: "0.00"
                     var notaTexto by remember(task.id) { mutableStateOf(notaGuardada) }
 
-                    // Sincroniza el campo si la nota cambia en Room desde otro origen
                     LaunchedEffect(notaGuardada) { notaTexto = notaGuardada }
 
-                    // Valida que el valor esté dentro del rango 0..máximo
                     val valorIngresado = notaTexto.replace(",", ".").toDoubleOrNull() ?: 0.0
                     val fueraDeRango   = notaTexto.isNotBlank() &&
                             (valorIngresado < 0 || valorIngresado > notaMaxima)
-
-                    // Este campo está habilitado si:
-                    // - No hay errores en ningún campo (hayNotasInvalidas = false), O
-                    // - Este campo es el que tiene el error (fueraDeRango = true)
-                    // Esto obliga al usuario a corregir el error antes de editar otro campo.
                     val campoHabilitado = !hayNotasInvalidas || fueraDeRango
 
                     val backgroundColor = if (index % 2 == 0)
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     else
-                        Color.Transparent
+                        MaterialTheme.colorScheme.surface
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(backgroundColor)
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            task.name,
-                            modifier = Modifier.weight(2f),
-                            textAlign = TextAlign.Start
-                        )
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                pendingDeleteTaskId = task.id
+                                pendingDeleteTaskName = task.name
+                            }
+                            false
+                        }
+                    )
 
-                        TextField(
-                            value = notaTexto,
-                            onValueChange = { value ->
-                                notaTexto = value
-                                notasEditadas[task.id] = value
-                            },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            enabled = campoHabilitado,
-                            // Teclado numérico con decimales al enfocar el campo
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            isError = fueraDeRango,
-                            // Mensaje en rojo si el valor está fuera del rango seleccionado
-                            supportingText = if (fueraDeRango) {
-                                {
-                                    Text(
-                                        "Ingrese una nota entre 0 y $notaMaxima",
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(end = 16.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                            } else null,
-                            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor   = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor  = Color.Transparent,
-                                focusedIndicatorColor   = MaterialTheme.colorScheme.primary,
-                                unfocusedIndicatorColor = Color.Transparent
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(backgroundColor)
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                task.name,
+                                modifier = Modifier.weight(2f),
+                                textAlign = TextAlign.Start
                             )
-                        )
+
+                            TextField(
+                                value = notaTexto,
+                                onValueChange = { value ->
+                                    notaTexto = value
+                                    notasEditadas[task.id] = value
+                                },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                enabled = campoHabilitado,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                isError = fueraDeRango,
+                                supportingText = if (fueraDeRango) {
+                                    {
+                                        Text(
+                                            "Ingrese una nota entre 0 y $notaMaxima",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                } else null,
+                                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor   = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor  = Color.Transparent,
+                                    focusedIndicatorColor   = MaterialTheme.colorScheme.primary,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                )
+                            )
+                        }
                     }
                 }
             }

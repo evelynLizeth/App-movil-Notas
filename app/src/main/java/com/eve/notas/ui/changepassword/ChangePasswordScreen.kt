@@ -65,7 +65,7 @@ fun ChangePasswordScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            contentColor = Color.Black
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 8.dp).height(32.dp)

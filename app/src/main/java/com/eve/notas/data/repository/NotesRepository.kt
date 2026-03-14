@@ -53,6 +53,27 @@ class NotesRepository(
     /** Elimina un estudiante de la base de datos */
     suspend fun deleteStudent(student: Student) = studentDao.delete(student)
 
+    /** Elimina un estudiante y todas sus notas. */
+    suspend fun deleteStudentCascade(student: Student) {
+        gradeDao.deleteGradesByStudent(student.id)
+        studentDao.delete(student)
+    }
+
+    /** Elimina un curso y todos sus estudiantes con sus notas. */
+    suspend fun deleteCourseCascade(course: Course) {
+        val students = studentDao.getByCourseList(course.id)
+        students.forEach { gradeDao.deleteGradesByStudent(it.id) }
+        students.forEach { studentDao.delete(it) }
+        courseDao.delete(course)
+    }
+
+    /** Elimina una institución y todos sus cursos, estudiantes y notas. */
+    suspend fun deleteInstitutionCascade(institution: Institution) {
+        val courses = courseDao.getByInstitutionList(institution.id)
+        courses.forEach { deleteCourseCascade(it) }
+        institutionDao.delete(institution)
+    }
+
     /** Inserta un estudiante y retorna su id generado */
     suspend fun insert(student: Student): Long = studentDao.insert(student)
 
@@ -67,6 +88,9 @@ class NotesRepository(
      */
     fun getStudentsByCourse(courseId: Long): Flow<List<Student>> =
         studentDao.getByCourse(courseId)
+
+    fun searchStudentsByCourseAndName(courseId: Long, name: String): Flow<List<Student>> =
+        studentDao.searchByCourseAndName(courseId, name)
 
     /**
      * Inserta un estudiante asignándolo a un curso específico.
@@ -145,8 +169,23 @@ class NotesRepository(
         studentDao.resetAllAverages()
     }
 
+    suspend fun deleteGradesAndResetAveragesByCourse(courseId: Long) {
+        gradeDao.deleteGradesByCourseStudents(courseId)
+        studentDao.resetAveragesByCourse(courseId)
+    }
+
+    suspend fun hasAnyGradesByCourse(courseId: Long): Boolean =
+        gradeDao.hasAnyGradesByCourse(courseId)
+
+    suspend fun updateCourseStudentsNotaMaxima(courseId: Long, notaMaxima: Int) =
+        studentDao.updateNotaMaximaByCourse(courseId, notaMaxima)
+
     /** Retorna true si hay al menos una nota registrada en la base de datos. */
     suspend fun hasAnyGrades(): Boolean = gradeDao.hasAnyGrades()
+
+    /** Elimina la nota de un estudiante para una tarea específica. */
+    suspend fun deleteGrade(studentId: Long, taskId: Long) =
+        gradeDao.deleteGrade(studentId, taskId)
 
     /**
      * Obtiene el promedio de un estudiante usando la función AVG de SQL.
@@ -161,6 +200,10 @@ class NotesRepository(
     /** Flujo reactivo con todas las tareas. Usado en ViewModels que observan cambios */
     val tasks: Flow<List<Task>> = taskDao.getTasks()
 
+    fun getTasksByCourse(courseId: Long): Flow<List<Task>> = taskDao.getByCourse(courseId)
+
+    suspend fun getTasksListByCourse(courseId: Long): List<Task> = taskDao.getTasksListByCourse(courseId)
+
     /** Obtiene la lista de tareas en una sola llamada (no reactiva) */
     suspend fun getTasksList(): List<Task> = taskDao.getTasksList()
 
@@ -172,6 +215,12 @@ class NotesRepository(
 
     /** Elimina una tarea de la base de datos */
     suspend fun delete(task: Task) = taskDao.delete(task)
+
+    /** Elimina una tarea y todas las notas asociadas a ella. */
+    suspend fun deleteTaskCascade(task: Task) {
+        gradeDao.deleteGradesByTask(task.id)
+        taskDao.delete(task)
+    }
 
     // ── Usuarios ──────────────────────────────────────────────────────────────
 
@@ -226,12 +275,22 @@ class NotesRepository(
     suspend fun addInstitution(institution: Institution): Long =
         institutionDao.insert(institution)
 
+    /** Elimina una institución de la base de datos. */
+    suspend fun deleteInstitution(institution: Institution) =
+        institutionDao.delete(institution)
+
     /**
      * Obtiene una institución por su id en una sola llamada.
      * Retorna null si no existe.
      */
     suspend fun getInstitutionById(id: Long): Institution? =
         institutionDao.getById(id)
+
+    suspend fun getInstitutionByName(userId: Long, name: String): Institution? =
+        institutionDao.getByName(userId, name)
+
+    suspend fun updateInstitution(institution: Institution) =
+        institutionDao.update(institution)
 
     // ── Cursos ────────────────────────────────────────────────────────────────
 
@@ -247,10 +306,18 @@ class NotesRepository(
      */
     suspend fun addCourse(course: Course): Long = courseDao.insert(course)
 
+    /** Elimina un curso de la base de datos. */
+    suspend fun deleteCourse(course: Course) = courseDao.delete(course)
+
     /**
      * Verifica si ya existe un curso con el mismo nombre y paralelo en la institución.
      * La comparación es insensible a mayúsculas/minúsculas.
      */
     suspend fun courseExists(institutionId: Long, name: String, parallel: String): Boolean =
         courseDao.existsCourse(institutionId, name, parallel)
+
+    suspend fun courseExistsExcluding(institutionId: Long, name: String, parallel: String, excludeId: Long): Boolean =
+        courseDao.existsCourseExcluding(institutionId, name, parallel, excludeId)
+
+    suspend fun updateCourse(course: Course) = courseDao.update(course)
 }

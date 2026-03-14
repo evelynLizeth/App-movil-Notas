@@ -52,6 +52,16 @@ class CoursesViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    /** Mensaje de feedback para el usuario (éxito, eliminación, etc.) */
+    private val _uiMessage = MutableStateFlow<String?>(null)
+    val uiMessage: StateFlow<String?> = _uiMessage.asStateFlow()
+
+    fun clearMessage() { _uiMessage.value = null }
+
+    /** Curso que se está editando actualmente. Null si no hay edición activa */
+    private val _editingCourse = MutableStateFlow<Course?>(null)
+    val editingCourse: StateFlow<Course?> = _editingCourse.asStateFlow()
+
     /** Abre el diálogo de agregar curso */
     fun openAddDialog() { _showAddDialog.value = true }
 
@@ -61,6 +71,35 @@ class CoursesViewModel(
     /** Limpia el mensaje de error */
     fun clearError() { _errorMessage.value = null }
 
+    /** Abre el diálogo de edición para el curso seleccionado */
+    fun startEditing(course: Course) {
+        _editingCourse.value = course
+    }
+
+    /** Cancela la edición activa */
+    fun cancelEditing() {
+        _editingCourse.value = null
+        _errorMessage.value = null
+    }
+
+    /** Valida y guarda el nuevo nombre y paralelo del curso */
+    fun finishEditing(course: Course, newName: String, newParallel: String) {
+        viewModelScope.launch {
+            if (newName.isBlank() || newParallel.isBlank()) {
+                _errorMessage.value = "Nombre y paralelo son obligatorios"
+                return@launch
+            }
+            if (repo.courseExistsExcluding(institutionId, newName.trim(), newParallel.trim(), course.id)) {
+                _errorMessage.value = "Ya existe un curso con ese nombre y paralelo"
+                return@launch
+            }
+            repo.updateCourse(course.copy(name = newName.trim(), parallel = newParallel.trim()))
+            _editingCourse.value = null
+            _errorMessage.value = null
+            _uiMessage.value = "Registro editado exitosamente."
+        }
+    }
+
     /**
      * Valida e inserta un nuevo curso para la institución actual.
      * El nombre y el paralelo son obligatorios.
@@ -69,6 +108,13 @@ class CoursesViewModel(
      * @param name Nombre del curso (ej: "Matemáticas")
      * @param parallel Paralelo del curso (ej: "A", "B")
      */
+    fun deleteCourse(course: Course) {
+        viewModelScope.launch {
+            repo.deleteCourseCascade(course)
+            _uiMessage.value = "Registro eliminado exitosamente."
+        }
+    }
+
     fun addCourse(name: String, parallel: String) {
         viewModelScope.launch {
             if (name.isBlank() || parallel.isBlank()) {

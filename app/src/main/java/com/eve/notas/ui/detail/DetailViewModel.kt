@@ -129,6 +129,11 @@ class DetailViewModel(
         _message.value = "Las notas se guardarón con éxito."
     }
 
+    /** Elimina la nota de una tarea específica para este estudiante. */
+    fun deleteGrade(taskId: Long) {
+        viewModelScope.launch { repo.deleteGrade(studentId, taskId) }
+    }
+
     /** Limpia el mensaje de feedback para que el Snackbar desaparezca */
     fun clearMessage() {
         _message.value = null

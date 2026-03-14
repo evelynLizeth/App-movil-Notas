@@ -1,9 +1,11 @@
 package com.eve.notas.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.eve.notas.data.model.Institution
 import kotlinx.coroutines.flow.Flow
 
@@ -35,4 +37,13 @@ interface InstitutionDao {
      */
     @Query("SELECT * FROM institutions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): Institution?
+
+    @Query("SELECT * FROM institutions WHERE userId = :userId AND LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun getByName(userId: Long, name: String): Institution?
+
+    @Update
+    suspend fun update(institution: Institution)
+
+    @Delete
+    suspend fun delete(institution: Institution)
 }

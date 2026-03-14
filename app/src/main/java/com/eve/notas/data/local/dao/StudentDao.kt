@@ -99,6 +99,9 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE courseId = :courseId ORDER BY name ASC")
     fun getByCourse(courseId: Long): Flow<List<Student>>
 
+    @Query("SELECT * FROM students WHERE courseId = :courseId")
+    suspend fun getByCourseList(courseId: Long): List<Student>
+
     /**
      * Busca estudiantes de un curso cuyo nombre contenga el texto dado.
      * La búsqueda es insensible a mayúsculas/minúsculas.
@@ -108,4 +111,10 @@ interface StudentDao {
      */
     @Query("SELECT * FROM students WHERE courseId = :courseId AND name LIKE '%' || :name || '%'")
     fun searchByCourseAndName(courseId: Long, name: String): Flow<List<Student>>
+
+    @Query("UPDATE students SET notaMaxima = :notaMaxima WHERE courseId = :courseId")
+    suspend fun updateNotaMaximaByCourse(courseId: Long, notaMaxima: Int)
+
+    @Query("UPDATE students SET average = 0.0 WHERE courseId = :courseId")
+    suspend fun resetAveragesByCourse(courseId: Long)
 }

@@ -10,6 +10,7 @@ import com.eve.notas.data.model.Student
 import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.util.GeneratorPDF
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import com.eve.notas.util.ValidationHelper
 import com.eve.notas.util.generatePdf
@@ -37,6 +38,9 @@ class MainViewModel(
      */
     val students: Flow<List<Student>> = repo.getStudents()
 
+    private val _courseId = MutableStateFlow(0L)
+    val courseId: StateFlow<Long> = _courseId.asStateFlow()
+
     // ── Contexto seleccionado (institución y grado) ───────────────────────────
 
     /** Nombre de la institución seleccionada al ingresar desde CoursesScreen */
@@ -48,9 +52,15 @@ class MainViewModel(
     val courseName: StateFlow<String> = _courseName.asStateFlow()
 
     /** Establece la institución y el grado activos al navegar desde Courses a Main */
-    fun setSelectedContext(institutionName: String, courseName: String) {
+    fun setSelectedContext(institutionName: String, courseName: String, courseId: Long) {
         _institutionName.value = institutionName
         _courseName.value = courseName
+        _courseId.value = courseId
+        viewModelScope.launch {
+            repo.getStudentsByCourse(courseId).first().firstOrNull()?.notaMaxima?.let {
+                _notaMaxima.value = it
+            }
+        }
     }
 
     // ── Escala de calificación global ─────────────────────────────────────────
@@ -62,15 +72,6 @@ class MainViewModel(
      */
     private val _notaMaxima = MutableStateFlow(10)
     val notaMaxima: StateFlow<Int> = _notaMaxima.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            // Carga la escala guardada del primer estudiante existente
-            repo.getStudents().first().firstOrNull()?.notaMaxima?.let {
-                _notaMaxima.value = it
-            }
-        }
-    }
 
     // ── Confirmación de cambio de escala ──────────────────────────────────────
 
@@ -89,7 +90,7 @@ class MainViewModel(
     fun requestScaleChange(value: Int) {
         if (value == _notaMaxima.value) return
         viewModelScope.launch {
-            if (repo.hasAnyGrades()) {
+            if (repo.hasAnyGradesByCourse(_courseId.value)) {
                 _pendingNotaMaxima.value = value
                 _showScaleChangeDialog.value = true
             } else {
@@ -102,7 +103,7 @@ class MainViewModel(
     fun confirmScaleChange() {
         viewModelScope.launch {
             _pendingNotaMaxima.value?.let { applyScaleChange(it) }
-            repo.deleteAllGradesAndResetAverages()
+            repo.deleteGradesAndResetAveragesByCourse(_courseId.value)
             _showScaleChangeDialog.value = false
             _pendingNotaMaxima.value = null
         }
@@ -116,7 +117,7 @@ class MainViewModel(
 
     private suspend fun applyScaleChange(value: Int) {
         _notaMaxima.value = value
-        repo.updateAllStudentsNotaMaxima(value)
+        repo.updateCourseStudentsNotaMaxima(_courseId.value, value)
     }
 
     // ── Búsqueda reactiva ─────────────────────────────────────────────────────
@@ -130,12 +131,13 @@ class MainViewModel(
      * Usa [flatMapLatest] para cancelar automáticamente la búsqueda anterior
      * cuando el usuario escribe un nuevo texto.
      */
-    val filteredStudents: StateFlow<List<Student>> = _searchQuery
-        .flatMapLatest { query ->
-            if (query.isBlank()) repo.getStudents()
-            else repo.searchByName(query)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val filteredStudents: StateFlow<List<Student>> = combine(_searchQuery, _courseId) { query, courseId ->
+        Pair(query, courseId)
+    }.flatMapLatest { (query, courseId) ->
+        if (courseId == 0L) flowOf(emptyList())
+        else if (query.isBlank()) repo.getStudentsByCourse(courseId)
+        else repo.searchStudentsByCourseAndName(courseId, query)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ── Selección múltiple ────────────────────────────────────────────────────
 
@@ -226,12 +228,12 @@ class MainViewModel(
      */
     fun addStudent(name: String) {
         viewModelScope.launch {
-            val existingNames = students.first().map { it.id to it.name }
+            val existingNames = filteredStudents.value.map { it.id to it.name }
             if (!ValidationHelper.isValidName(name, existingNames)) {
                 _errorMessage.value = "El registro ya existe o está vacío"
                 return@launch
             }
-            repo.insert(Student(name = name, average = 0.0, notaMaxima = _notaMaxima.value))
+            repo.insert(Student(name = name, average = 0.0, notaMaxima = _notaMaxima.value, courseId = _courseId.value))
             _errorMessage.value = null
             closeAddDialog()
             _uiMessage.value = "Registro creado con éxito."
@@ -252,7 +254,7 @@ class MainViewModel(
      */
     fun finishEditing(student: Student, newName: String) {
         viewModelScope.launch {
-            val existingNames = students.first().map { it.id to it.name }
+            val existingNames = filteredStudents.value.map { it.id to it.name }
             if (!ValidationHelper.isValidName(newName, existingNames, student.id)) {
                 _errorMessage.value = "El registro ya existe o está vacío"
                 return@launch
@@ -268,6 +270,10 @@ class MainViewModel(
     fun cancelEditing() {
         _editingStudent.value = null
         _errorMessage.value = null
+    }
+
+    fun deleteStudentDirect(student: Student) {
+        viewModelScope.launch { repo.deleteStudentCascade(student) }
     }
 
     // ── Exportar PDF ──────────────────────────────────────────────────────────

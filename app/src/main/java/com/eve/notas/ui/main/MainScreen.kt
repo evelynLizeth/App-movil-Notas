@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.text.DecimalFormat
 import com.eve.notas.ui.components.ConfirmDialog
+import com.eve.notas.data.model.Student
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import com.eve.notas.ui.components.MessageSnackbar
@@ -50,6 +51,19 @@ fun MainScreen(
     val context = LocalContext.current
     var newName by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<Student?>(null) }
+
+    if (pendingDelete != null) {
+        ConfirmDialog(
+            title = "Eliminar estudiante",
+            message = "¿Eliminar a \"${pendingDelete!!.name}\"? Se borrarán también todas sus notas.",
+            onConfirm = {
+                viewModel.deleteStudentDirect(pendingDelete!!)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null }
+        )
+    }
     val formatter = DecimalFormat("00.00")
     val uiMessage by viewModel.uiMessage.collectAsState(initial = null)
     val institutionName by viewModel.institutionName.collectAsState()
@@ -77,7 +91,7 @@ fun MainScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            contentColor = Color.Black
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 8.dp).height(32.dp)
@@ -139,12 +153,16 @@ fun MainScreen(
                 /*Button(onClick = onNavigateToTasks) {
                     Text("Crear tareas")
                 }*/
-                ExtendedFloatingActionButton(
+                Button(
                     onClick = onNavigateToTasks,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.Black
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
                 ) {
-                    Text("Crear tareas")
+                    Text("Crear tareas", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -320,44 +338,68 @@ fun MainScreen(
             // 🔹 Lista de estudiantes con filas alternadas
             LazyColumn {
                 itemsIndexed(students, key = { index, student -> student.id }) { index, student ->
-                    val backgroundColor = if (index % 2 == 0) {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) // fondo suave
-                    } else {
-                        Color.Transparent
-                    }
+                    val backgroundColor = if (index % 2 == 0)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    else
+                        MaterialTheme.colorScheme.surface
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(backgroundColor)
-                            .padding(vertical = 8.dp),
-                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                pendingDelete = student
+                            }
+                            false
+                        }
+                    )
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(end = 16.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     ) {
-                        Checkbox(
-                            checked = selectedStudents.contains(student),
-                            onCheckedChange = { viewModel.toggleSelection(student) }
-                        )
-
-                        Text(
-                            student.name.ifBlank { "Ingrese nombre" },
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .clickable { viewModel.startEditing(student) },
-                                textAlign = TextAlign.Start
-                        )
+                                .fillMaxWidth()
+                                .background(backgroundColor)
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = selectedStudents.contains(student),
+                                onCheckedChange = { viewModel.toggleSelection(student) }
+                            )
 
-                        Text(
-                            String.format("%05.2f", student.average),
-                            modifier = Modifier.weight(1f)
-                                .clickable { onNavigateToDetail(student.id) },
-                            textAlign = TextAlign.Center,
-                            // Umbral de color rojo: 70 % del máximo guardado por estudiante
-                            // Escala 10 → rojo si promedio < 7
-                            // Escala 20 → rojo si promedio < 14
-                            color = if (student.average < notaMaxima * 0.7) Color.Red
-                                    else MaterialTheme.colorScheme.onSurface
-                        )
+                            Text(
+                                student.name.ifBlank { "Ingrese nombre" },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.startEditing(student) },
+                                textAlign = TextAlign.Start
+                            )
+
+                            Text(
+                                String.format("%05.2f", student.average),
+                                modifier = Modifier.weight(1f)
+                                    .clickable { onNavigateToDetail(student.id) },
+                                textAlign = TextAlign.Center,
+                                color = if (student.average < notaMaxima * 0.7) Color.Red
+                                        else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }

@@ -52,4 +52,10 @@ interface TaskDao {
      */
     @Query("SELECT * FROM task")
     suspend fun getTasksList(): List<Task>
+
+    @Query("SELECT * FROM task WHERE courseId = :courseId ORDER BY createdAt DESC")
+    fun getByCourse(courseId: Long): Flow<List<Task>>
+
+    @Query("SELECT * FROM task WHERE courseId = :courseId")
+    suspend fun getTasksListByCourse(courseId: Long): List<Task>
 }

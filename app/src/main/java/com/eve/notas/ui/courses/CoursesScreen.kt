@@ -1,11 +1,17 @@
 package com.eve.notas.ui.courses
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
+import com.eve.notas.data.model.Course
+import com.eve.notas.ui.components.ConfirmDialog
+import com.eve.notas.ui.components.MessageSnackbar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,11 +33,11 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToMain Callback para navegar a la pantalla principal de estudiantes
  * @param modifier Modificador opcional
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CoursesScreen(
     viewModel: CoursesViewModel,
-    onNavigateToMain: (courseName: String) -> Unit,
+    onNavigateToMain: (courseId: Long, courseName: String) -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -39,9 +45,77 @@ fun CoursesScreen(
     val showAddDialog by viewModel.showAddDialog.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val institutionName by viewModel.institutionName.collectAsState()
+    val editingCourse by viewModel.editingCourse.collectAsState()
+    val uiMessage by viewModel.uiMessage.collectAsState()
 
     var newName by remember { mutableStateOf("") }
     var newParallel by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<Course?>(null) }
+
+    if (pendingDelete != null) {
+        ConfirmDialog(
+            title = "Eliminar curso",
+            message = "¿Eliminar \"${pendingDelete!!.name} - ${pendingDelete!!.parallel}\"? Se borrarán también todos sus estudiantes y notas.",
+            onConfirm = {
+                viewModel.deleteCourse(pendingDelete!!)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null }
+        )
+    }
+
+    // Diálogo para editar curso
+    editingCourse?.let { course ->
+        var editedName by remember(course.id) { mutableStateOf(course.name) }
+        var editedParallel by remember(course.id) { mutableStateOf(course.parallel) }
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelEditing() },
+            title = { Text("Editar curso") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextField(
+                        value = editedName,
+                        onValueChange = { editedName = it; viewModel.clearError() },
+                        placeholder = { Text("Nombre del curso") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    )
+                    TextField(
+                        value = editedParallel,
+                        onValueChange = { editedParallel = it; viewModel.clearError() },
+                        placeholder = { Text("Paralelo (ej: A, B)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    )
+                    errorMessage?.let { msg ->
+                        Text(text = msg, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.finishEditing(course, editedName, editedParallel) }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { viewModel.cancelEditing() }) { Text("Cancelar") }
+            }
+        )
+    }
 
     // Diálogo para agregar curso
     if (showAddDialog) {
@@ -123,6 +197,9 @@ fun CoursesScreen(
     }
 
     Scaffold(
+        snackbarHost = {
+            MessageSnackbar(message = uiMessage, onDismiss = { viewModel.clearMessage() })
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -138,7 +215,7 @@ fun CoursesScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            contentColor = Color.Black
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 8.dp).height(32.dp)
@@ -183,25 +260,55 @@ fun CoursesScreen(
                     items = courses,
                     key = { _, course -> course.id }
                 ) { index, course ->
-                    val backgroundColor = if (index % 2 == 0) {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                    } else {
-                        Color.Transparent
-                    }
+                    val backgroundColor = if (index % 2 == 0)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    else
+                        MaterialTheme.colorScheme.surface
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(backgroundColor)
-                            .clickable { onNavigateToMain("${course.name} - ${course.parallel}") }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                pendingDelete = course
+                            }
+                            false
+                        }
+                    )
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(end = 16.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     ) {
-                        Text(
-                            text = "${course.name} - ${course.parallel}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(backgroundColor)
+                                .combinedClickable(
+                                    onClick = { onNavigateToMain(course.id, "${course.name} - ${course.parallel}") },
+                                    onLongClick = { viewModel.startEditing(course) }
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${course.name} - ${course.parallel}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }

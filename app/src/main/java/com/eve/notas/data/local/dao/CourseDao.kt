@@ -1,9 +1,11 @@
 package com.eve.notas.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.eve.notas.data.model.Course
 import kotlinx.coroutines.flow.Flow
 
@@ -47,4 +49,24 @@ interface CourseDao {
         ")"
     )
     suspend fun existsCourse(institutionId: Long, name: String, parallel: String): Boolean
+
+    @Query(
+        "SELECT EXISTS(" +
+        "SELECT 1 FROM courses " +
+        "WHERE institutionId = :institutionId " +
+        "AND LOWER(name) = LOWER(:name) " +
+        "AND LOWER(parallel) = LOWER(:parallel) " +
+        "AND id != :excludeId" +
+        ")"
+    )
+    suspend fun existsCourseExcluding(institutionId: Long, name: String, parallel: String, excludeId: Long): Boolean
+
+    @Update
+    suspend fun update(course: Course)
+
+    @Delete
+    suspend fun delete(course: Course)
+
+    @Query("SELECT * FROM courses WHERE institutionId = :institutionId")
+    suspend fun getByInstitutionList(institutionId: Long): List<Course>
 }

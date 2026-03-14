@@ -163,8 +163,9 @@ fun NavGraph(
 
             CoursesScreen(
                 viewModel = coursesViewModel,
-                onNavigateToMain = { courseName ->
-                    mainViewModel.setSelectedContext(institutionName, courseName)
+                onNavigateToMain = { courseId, courseName ->
+                    mainViewModel.setSelectedContext(institutionName, courseName, courseId)
+                    tasksViewModel.setCourseId(courseId)
                     navController.navigate(Routes.MAIN)
                 },
                 onLogout = {

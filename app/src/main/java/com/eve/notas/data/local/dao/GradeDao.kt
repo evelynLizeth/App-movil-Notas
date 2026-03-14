@@ -73,4 +73,22 @@ interface GradeDao {
     /** Retorna true si existe al menos una nota registrada. */
     @Query("SELECT EXISTS(SELECT 1 FROM grade LIMIT 1)")
     suspend fun hasAnyGrades(): Boolean
+
+    /** Elimina la nota de un estudiante para una tarea específica. */
+    @Query("DELETE FROM grade WHERE studentId = :studentId AND taskId = :taskId")
+    suspend fun deleteGrade(studentId: Long, taskId: Long)
+
+    /** Elimina todas las notas de un estudiante. */
+    @Query("DELETE FROM grade WHERE studentId = :studentId")
+    suspend fun deleteGradesByStudent(studentId: Long)
+
+    /** Elimina todas las notas asociadas a una tarea. */
+    @Query("DELETE FROM grade WHERE taskId = :taskId")
+    suspend fun deleteGradesByTask(taskId: Long)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM grade WHERE studentId IN (SELECT id FROM students WHERE courseId = :courseId))")
+    suspend fun hasAnyGradesByCourse(courseId: Long): Boolean
+
+    @Query("DELETE FROM grade WHERE studentId IN (SELECT id FROM students WHERE courseId = :courseId)")
+    suspend fun deleteGradesByCourseStudents(courseId: Long)
 }

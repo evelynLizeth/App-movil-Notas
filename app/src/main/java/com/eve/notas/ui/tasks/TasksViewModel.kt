@@ -6,6 +6,7 @@ import com.eve.notas.data.repository.NotesRepository
 import com.eve.notas.data.model.Task
 import com.eve.notas.util.ValidationHelper
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 /**
@@ -15,14 +16,14 @@ import kotlinx.coroutines.launch
  */
 class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
 
-    // ── Lista de tareas ───────────────────────────────────────────────────────
+    private val _courseId = MutableStateFlow(0L)
 
-    /**
-     * Lista completa de tareas desde Room, convertida a [StateFlow].
-     * Se actualiza automáticamente cuando la base de datos cambia.
-     */
-    val tasks: StateFlow<List<Task>> =
-        repo.tasks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun setCourseId(courseId: Long) { _courseId.value = courseId }
+
+    val tasks: StateFlow<List<Task>> = _courseId.flatMapLatest { courseId ->
+        if (courseId == 0L) flowOf(emptyList())
+        else repo.getTasksByCourse(courseId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ── Búsqueda ──────────────────────────────────────────────────────────────
 
@@ -94,10 +95,10 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
 
     // ── CRUD de tareas ────────────────────────────────────────────────────────
 
-    /** Elimina una tarea específica de la base de datos */
+    /** Elimina una tarea y todas sus notas asociadas. */
     fun deleteTask(task: Task) {
         viewModelScope.launch {
-            repo.delete(task)
+            repo.deleteTaskCascade(task)
         }
     }
 
@@ -154,7 +155,7 @@ class TasksViewModel(private val repo: NotesRepository) : ViewModel() {
                 _errorMessage.value = "La tarea ya existe o está vacía"
                 return@launch
             }
-            repo.insert(Task(name = name))
+            repo.insert(Task(name = name, courseId = _courseId.value))
             _errorMessage.value = null
             closeAddDialog()
         }

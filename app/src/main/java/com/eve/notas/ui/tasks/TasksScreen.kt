@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.eve.notas.data.model.Task
 import com.eve.notas.ui.components.ConfirmDialog
 
 /**
@@ -54,6 +55,19 @@ fun TasksScreen(
     // ── Estado local de la UI ─────────────────────────────────────────────────
     // Texto del campo en el diálogo de crear tarea (estado local, no persiste en VM)
     var newTaskName by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<Task?>(null) }
+
+    if (pendingDelete != null) {
+        ConfirmDialog(
+            title = "Eliminar tarea",
+            message = "¿Eliminar \"${pendingDelete!!.name}\"? Se borrarán también todas las notas asociadas a esta tarea.",
+            onConfirm = {
+                viewModel.deleteTask(pendingDelete!!)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null }
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -75,7 +89,7 @@ fun TasksScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
+                            contentColor = Color.Black
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 8.dp).height(32.dp)
@@ -171,31 +185,57 @@ fun TasksScreen(
                 )
             } else {
                 LazyColumn {
-                    itemsIndexed(tasks) { index, task ->
+                    itemsIndexed(tasks, key = { _, task -> task.id }) { index, task ->
                         // Filas con color de fondo alternado para mejor legibilidad
                         val backgroundColor = if (index % 2 == 0)
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                         else
-                            Color.Transparent
+                            MaterialTheme.colorScheme.surface
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(backgroundColor)
-                                .padding(vertical = 8.dp)
-                                // Clic en la fila abre el diálogo de edición
-                                .clickable { viewModel.startEditingTask(task) },
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    pendingDelete = task
+                                }
+                                false
+                            }
+                        )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(end = 16.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                         ) {
-                            // Checkbox para selección múltiple
-                            Checkbox(
-                                checked = selectedTasks.contains(task),
-                                onCheckedChange = { viewModel.toggleSelection(task) }
-                            )
-                            Text(
-                                text = task.name,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(backgroundColor)
+                                    .padding(vertical = 8.dp)
+                                    .clickable { viewModel.startEditingTask(task) },
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Checkbox(
+                                    checked = selectedTasks.contains(task),
+                                    onCheckedChange = { viewModel.toggleSelection(task) }
+                                )
+                                Text(
+                                    text = task.name,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
