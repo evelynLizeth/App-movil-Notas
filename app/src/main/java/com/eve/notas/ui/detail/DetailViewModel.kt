@@ -23,7 +23,8 @@ import kotlinx.coroutines.launch
  */
 class DetailViewModel(
     private val repo: NotesRepository,
-    private val studentId: Long
+    private val studentId: Long,
+    private val courseId: Long
 ) : ViewModel() {
 
     // ── Datos del estudiante ──────────────────────────────────────────────────
@@ -42,7 +43,8 @@ class DetailViewModel(
      * contando como 0 las tareas sin nota asignada.
      */
     val tasks: StateFlow<List<Task>> =
-        repo.tasks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        repo.getTasksByCourse(courseId)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ── Notas del estudiante ──────────────────────────────────────────────────
 

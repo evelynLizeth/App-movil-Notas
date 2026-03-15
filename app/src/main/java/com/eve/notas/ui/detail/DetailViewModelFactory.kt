@@ -6,12 +6,13 @@ import com.eve.notas.data.repository.NotesRepository
 
 class DetailViewModelFactory(
     private val repo: NotesRepository,
-    private val studentId: Long
+    private val studentId: Long,
+    private val courseId: Long
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return DetailViewModel(repo, studentId) as T
+            return DetailViewModel(repo, studentId, courseId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -208,10 +208,11 @@ fun NavGraph(
             val notaMaxima by mainViewModel.notaMaxima.collectAsState()
             val institutionName by mainViewModel.institutionName.collectAsState()
             val courseName by mainViewModel.courseName.collectAsState()
+            val courseId by mainViewModel.courseId.collectAsState()
 
-            // Crea el DetailViewModel con su factory para pasarle el studentId
+            // Crea el DetailViewModel con su factory para pasarle el studentId y courseId
             val detailViewModel: DetailViewModel = viewModel(
-                factory = DetailViewModelFactory(repo, studentId)
+                factory = DetailViewModelFactory(repo, studentId, courseId)
             )
 
             DetailScreen(
